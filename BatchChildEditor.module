@@ -1,0 +1,335 @@
+<?php
+
+/**
+ * ProcessWire Batch creation and editing of child page titles
+ * by Adrian Jones
+ *
+ * Quick batch editing of all child page, so long as they only have a title field.
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class BatchChildEditor extends WireData implements Module, ConfigurableModule {
+
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'Batch child editor',
+            'summary' => 'Quick batch creation and editing of child page titles and names.',
+            'href' => '',
+            'version' => 8,
+            'permanent' => false,
+            'autoload' => true
+        );
+    }
+
+
+    /**
+     * Data as used by the get/set functions
+     *
+     */
+    protected $data = array();
+
+
+   /**
+     * Default configuration for module
+     *
+     */
+    static public function getDefaultData() {
+            return array(
+                "enabledRoles" => array(),
+                "enabledTemplates" => array(),
+                "enabledPages" => array(),
+                "overwriteNames" => "",
+                "allowOverrideOverwriteNames" => ""
+            );
+    }
+
+    /**
+     * Populate the default config data
+     *
+     */
+    public function __construct() {
+       foreach(self::getDefaultData() as $key => $value) {
+               $this->$key = $value;
+       }
+    }
+
+
+    public function init() {
+    }
+
+
+    public function ready() {
+
+        // we're interested in page editor only
+        if(wire('page')->process != 'ProcessPageEdit') return;
+
+        $id = (int)$this->input->get->id;
+        if(!$id) return;
+
+        // GET parameter id tells the page that's being edited
+        $this->editedPage = wire('pages')->get($id);
+
+        // don't even consider system templates
+        if($this->editedPage->template->flags & Template::flagSystem) return;
+
+        // hook only if the template of the edited page has been chosen or the page has been chosen, and the user's role is permitted
+        if(count($this->data['enabledRoles']) === 0 && !$this->user->isSuperuser()) return;
+        $userRoles = array();
+        foreach($this->user->roles as $ur) $userRoles[] = $ur->name;
+        if(count(array_intersect($userRoles, $this->data['enabledRoles'])) === 0  && !$this->user->isSuperuser()) return;
+        if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
+        if(count($this->data['enabledTemplates']) !== 0 && !in_array($this->editedPage->template->name, $this->data['enabledTemplates'])) return;
+        if(count($this->data['enabledPages']) !== 0 && !in_array($this->editedPage->id, $this->data['enabledPages'])) return;
+
+        $this->addHookAfter('ProcessPageEdit::buildFormChildren', $this, 'addChildEditFieldset');
+        $this->addHookAfter('ProcessPageEdit::processInput', $this, 'saveChildren');
+    }
+
+
+    public function addChildEditFieldset(HookEvent $event){
+
+        $pp = $event->object->getPage();
+        $form = $event->return;
+
+        $childPages = '';
+        foreach($pp->children() as $cp) $childPages .= "\n{$cp->title}";
+
+        // create the tab
+        $childEditSet = $this->modules->get("InputfieldFieldset");
+        $childEditSet->attr('name', 'child_batch_editor');
+        $childEditSet->label = __('Child Batch Editor');
+        $childEditSet->description = __('Allows quick editing of existing child page titles/names, or creation of new ones.');
+        $childEditSet->collapsed = Inputfield::collapsedYes;
+
+
+        $f = $this->modules->get("InputfieldSelect");
+        $f->attr('name', 'create_edit');
+        $f->label = __('Create/Overwrite or Edit');
+        $f->description = __('Whether to create/overwrite the entire list of child pages, or edit existing ones. Choose an option to read more about how it works.');
+        $f->addOption('');
+        $f->addOption('Create/Overwrite');
+        $f->addOption('Edit');
+        //$f->notes = __("");
+        $childEditSet->add($f);
+
+
+        if(is_array($pp->template->childTemplates) && count($pp->template->childTemplates)!=1){
+            $f = $this->modules->get("InputfieldSelect");
+            $f->required = true;
+            $f->name = "childTemplate";
+            $f->showIf = "create_edit=Create/Overwrite";
+            $f->label = __('Child Template');
+            $f->description = __('Choose the template for the children');
+            if(count($pp->template->childTemplates)==0){
+                $f->addOption('');
+                foreach($this->templates as $t) {
+                    if(!($t->flags & Template::flagSystem)) $f->addOption($t->name);
+                }
+            }
+            else{
+                $f->addOption('');
+                foreach($pp->template->childTemplates as $t) {
+                    $f->addOption($this->templates->get($t)->name);
+                }
+            }
+            if($pp->child()->id) $f->attr('value', $pp->child()->template);
+            $childEditSet->add($f);
+        }
+
+        if($this->data['allowOverrideOverwriteNames']){
+            $f = wire('modules')->get("InputfieldCheckbox");
+            $f->attr('name', 'userOverwriteNames');
+            $f->showIf = "create_edit=Edit";
+            $f->label = __('Overwrite names');
+            $f->description = __('Whether to overwrite the name of the page, and not just the title.');
+            $f->attr('checked', $this->data['overwriteNames'] ? 'checked' : '' );
+            $f->notes = __("This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
+            $childEditSet->add($f);
+        }
+
+
+        $f = $this->modules->get("InputfieldTextarea");
+        $f->name = "childTitles";
+        $f->showIf = "create_edit=Create/Overwrite";
+        $f->label = $this->_("Create/Overwrite Child Pages");
+        $f->description = $this->_("Editing this field will create/overwrite all the child page titles represented here.");
+        $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created.");
+        $f->attr('value', $childPages);
+        $childEditSet->append($f);
+
+        $fieldset = $this->modules->get("InputfieldFieldset");
+        $fieldset->attr('id', 'edit');
+        $fieldset->showIf = "create_edit=Edit";
+        $fieldset->label = "Edit Existing Child Pages";
+        $fieldset->description = "This option allows editing of existing child pages, without deleting existing pages, or affecting the values of other fields on these pages.";
+        foreach($pp->children() as $cp){
+            $f = $this->modules->get("InputfieldText");
+            $f->name = "individualChildTitles[$cp->id]";
+            $f->label = $this->_("&nbsp;");
+            $f->description = $this->_("");
+            $f->notes = $this->_("");
+            $f->attr('value', $cp->title);
+            $fieldset->append($f);
+        }
+        $childEditSet->append($fieldset);
+
+        $form->add($childEditSet);
+
+    }
+
+
+    public function saveChildren(HookEvent $event){
+
+        // ProcessPageEdit's processInput function may go recursive, so we want to skip
+        // the instances where it does that by checking the second argument named "level"
+        $level = $event->arguments(1);
+        if($level > 0) return;
+
+        if($this->input->post->create_edit == '') return; //if no edit type selected, leave now
+
+        $pp = $event->object->getPage();
+
+        //Create/Overwrite Mode
+        if($this->input->post->create_edit == "Create/Overwrite"){
+
+            foreach($pp->children("include=all") as $cp){
+                if($cp->numChildren>0){
+                    $this->error("You cannot bulk edit these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first.");
+                    return;
+                }
+                foreach($cp->fields as $cpfield){
+                    if($cpfield->name != 'title' && $cp->$cpfield !=''){
+                        $this->error("You cannot bulk edit these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first.");
+                        return;
+                    }
+                }
+            }
+
+            foreach($pp->children() as $cp) $this->pages->delete($cp, true);
+
+            //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
+            $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
+
+            foreach(explode("\r\n",$this->input->post->childTitles) as $childTitle){
+                $childTitle = trim(preg_replace("/[^A-Za-z0-9 -]/", '', $childTitle));
+                if($childTitle=='') continue;
+                $np = new Page();
+                $np->parent = $pp;
+                $np->template = $childTemplate;
+                $np->title = $childTitle;
+                $np->name = $this->sanitizer->pageName($childTitle);
+                $np->of(false);
+                $np->save();
+            }
+        }
+        //Edit Existing Mode
+        else{
+            $i=0;
+            foreach($this->input->post->individualChildTitles as $id => $childTitle){
+                $i++;
+                $cp = $this->pages->get($id);
+                $cp->title = $childTitle;
+                if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && $this->data['overwriteNames'])){
+                    $n = 0;
+                    $pageName = $this->sanitizer->pageName($childTitle);
+                    do {
+                        $name = $pageName . ($n ? "-$n" : '');
+                        $child = $pp->child("name=$name"); // see if another page already has the same name
+                        $n++;
+                    } while($child->id);
+                    $cp->name = $name;
+                }
+                $cp->sort = $i;
+                $cp->of(false);
+                $cp->save();
+            }
+        }
+
+        $this->message("Changes to child pages were successfully completed");
+
+    }
+
+
+    /**
+     * Return an InputfieldsWrapper of Inputfields used to configure the class
+     *
+     * @param array $data Array of config values indexed by field name
+     * @return InputfieldsWrapper
+     *
+     */
+    public static function getModuleConfigInputfields(array $data) {
+
+        $data = array_merge(self::getDefaultData(), $data);
+
+        $wrapper = new InputFieldWrapper();
+
+        $fieldEnabledRoles = wire('modules')->get('InputfieldAsmSelect');
+        $fieldEnabledRoles->attr('name+id', 'enabledRoles');
+        $fieldEnabledRoles->label = __('Enabled roles', __FILE__);
+        $fieldEnabledRoles->columnWidth = 33;
+        $fieldEnabledRoles->description = __('The batch editing option will only be available for the selected roles. Superuser is included by default. Only roles with page-edit permissions are listed here.', __FILE__);
+        $fieldEnabledRoles->setAsmSelectOption('sortable', false);
+
+        // populate with all available templates
+        foreach(wire('roles') as $r) {
+            // filter out superuser and guest and those roles without page-edit permissions
+            if($r->name != "superuser" && $r->name != "guest" && $r->hasPermission("page-edit")) $fieldEnabledRoles->addOption($r->name);
+        }
+        if(isset($data['enabledRoles'])) $fieldEnabledRoles->value = $data['enabledRoles'];
+        $wrapper->add($fieldEnabledRoles);
+
+
+        $fieldEnabledTemplates = wire('modules')->get('InputfieldAsmSelect');
+        $fieldEnabledTemplates->attr('name+id', 'enabledTemplates');
+        $fieldEnabledTemplates->label = __('Enabled templates', __FILE__);
+        $fieldEnabledTemplates->columnWidth = 34;
+        $fieldEnabledTemplates->description = __('The batch editing option will only be available for the selected templates. You can choose from templates, pages, or both.', __FILE__);
+        $fieldEnabledTemplates->setAsmSelectOption('sortable', false);
+
+        // populate with all available templates
+        foreach(wire('templates') as $t) {
+            // filter out system templates
+            if(!($t->flags & Template::flagSystem)) $fieldEnabledTemplates->addOption($t->name);
+        }
+        if(isset($data['enabledTemplates'])) $fieldEnabledTemplates->value = $data['enabledTemplates'];
+        $wrapper->add($fieldEnabledTemplates);
+
+
+        $fieldEnabledPages = wire('modules')->get('InputfieldPageListSelectMultiple');
+        $fieldEnabledPages->attr('name+id', 'enabledPages');
+        $fieldEnabledPages->label = __('Enabled pages', __FILE__);
+        $fieldEnabledPages->columnWidth = 33;
+        $fieldEnabledPages->description = __('The batch editing option will only be available for the selected pages. You can choose from templates, pages, or both.', __FILE__);
+        $fieldEnabledPages->attr('title', __('Enable page', __FILE__));
+        if(isset($data['enabledPages'])) $fieldEnabledPages->value = $data['enabledPages'];
+        $wrapper->add($fieldEnabledPages);
+
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'overwriteNames');
+        $f->label = __('Overwrite names');
+        $f->columnWidth = 50;
+        $f->description = __('Whether to overwrite the name of the page, and not just the title.');
+        $f->attr('checked', $data['overwriteNames'] ? 'checked' : '' );
+        $f->notes = __("This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
+        $wrapper->add($f);
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'allowOverrideOverwriteNames');
+        $f->label = __('Allow user to change "Overwrite Names" setting');
+        $f->columnWidth = 50;
+        $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
+        $f->attr('checked', $data['allowOverrideOverwriteNames'] ? 'checked' : '' );
+        $wrapper->add($f);
+
+
+        return $wrapper;
+    }
+}
