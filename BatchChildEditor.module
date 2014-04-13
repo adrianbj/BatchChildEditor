@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 9,
+            'version' => 10,
             'permanent' => false,
             'autoload' => true
         );
@@ -229,6 +229,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         else{
             $i=0;
             foreach($this->input->post->individualChildTitles as $id => $childTitle){
+                $childTitle = trim(preg_replace("/[^A-Za-z0-9 -]/", '', $childTitle));
                 $i++;
                 $cp = $this->pages->get($id);
                 $cp->title = $childTitle;
