@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 8,
+            'version' => 9,
             'permanent' => false,
             'autoload' => true
         );
@@ -42,7 +42,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      */
     static public function getDefaultData() {
             return array(
-                "enabledRoles" => array(),
                 "enabledTemplates" => array(),
                 "enabledPages" => array(),
                 "overwriteNames" => "",
@@ -79,11 +78,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // don't even consider system templates
         if($this->editedPage->template->flags & Template::flagSystem) return;
 
-        // hook only if the template of the edited page has been chosen or the page has been chosen, and the user's role is permitted
-        if(count($this->data['enabledRoles']) === 0 && !$this->user->isSuperuser()) return;
-        $userRoles = array();
-        foreach($this->user->roles as $ur) $userRoles[] = $ur->name;
-        if(count(array_intersect($userRoles, $this->data['enabledRoles'])) === 0  && !$this->user->isSuperuser()) return;
+        // hook only if the template of the edited page has been chosen or the page has been chosen and user has permission
+        if(!$this->user->hasPermission("batch-child-editor")) return;
         if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
         if(count($this->data['enabledTemplates']) !== 0 && !in_array($this->editedPage->template->name, $this->data['enabledTemplates'])) return;
         if(count($this->data['enabledPages']) !== 0 && !in_array($this->editedPage->id, $this->data['enabledPages'])) return;
@@ -270,26 +266,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $wrapper = new InputFieldWrapper();
 
-        $fieldEnabledRoles = wire('modules')->get('InputfieldAsmSelect');
-        $fieldEnabledRoles->attr('name+id', 'enabledRoles');
-        $fieldEnabledRoles->label = __('Enabled roles', __FILE__);
-        $fieldEnabledRoles->columnWidth = 33;
-        $fieldEnabledRoles->description = __('The batch editing option will only be available for the selected roles. Superuser is included by default. Only roles with page-edit permissions are listed here.', __FILE__);
-        $fieldEnabledRoles->setAsmSelectOption('sortable', false);
-
-        // populate with all available templates
-        foreach(wire('roles') as $r) {
-            // filter out superuser and guest and those roles without page-edit permissions
-            if($r->name != "superuser" && $r->name != "guest" && $r->hasPermission("page-edit")) $fieldEnabledRoles->addOption($r->name);
-        }
-        if(isset($data['enabledRoles'])) $fieldEnabledRoles->value = $data['enabledRoles'];
-        $wrapper->add($fieldEnabledRoles);
-
-
         $fieldEnabledTemplates = wire('modules')->get('InputfieldAsmSelect');
         $fieldEnabledTemplates->attr('name+id', 'enabledTemplates');
         $fieldEnabledTemplates->label = __('Enabled templates', __FILE__);
-        $fieldEnabledTemplates->columnWidth = 34;
+        $fieldEnabledTemplates->columnWidth = 50;
         $fieldEnabledTemplates->description = __('The batch editing option will only be available for the selected templates. You can choose from templates, pages, or both.', __FILE__);
         $fieldEnabledTemplates->setAsmSelectOption('sortable', false);
 
@@ -305,7 +285,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledPages = wire('modules')->get('InputfieldPageListSelectMultiple');
         $fieldEnabledPages->attr('name+id', 'enabledPages');
         $fieldEnabledPages->label = __('Enabled pages', __FILE__);
-        $fieldEnabledPages->columnWidth = 33;
+        $fieldEnabledPages->columnWidth = 50;
         $fieldEnabledPages->description = __('The batch editing option will only be available for the selected pages. You can choose from templates, pages, or both.', __FILE__);
         $fieldEnabledPages->attr('title', __('Enable page', __FILE__));
         if(isset($data['enabledPages'])) $fieldEnabledPages->value = $data['enabledPages'];
@@ -332,4 +312,34 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         return $wrapper;
     }
+
+
+    /**
+     * Called only when your module is installed
+     *
+     * Create a new permission.
+     *
+     */
+    public function ___install() {
+        $p = new Permission();
+        $p->name = 'batch-child-editor';
+        $p->title = $this->_('Use Batch Child Editor');
+        $p->save();
+
+        $su = $this->roles->get("superuser");
+        $su->addPermission("batch-child-editor");
+        $su->save();
+    }
+
+    /**
+     * Called only when your module is uninstalled
+     *
+     * Remove the special permission
+     *
+     */
+    public function ___uninstall() {
+        $permission = $this->permissions->get('batch-child-editor');
+        if ($permission->id) $permission->delete();
+    }
+
 }
