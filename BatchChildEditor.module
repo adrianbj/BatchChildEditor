@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 11,
+            'version' => 12,
             'permanent' => false,
             'autoload' => true
         );
@@ -113,7 +113,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet->collapsed = Inputfield::collapsedYes;
 
 
-        if($this->data['editModes'] == "both"){
+        if($this->data['editModes'] == "both" || $this->user->isSuperuser()){
             $f = $this->modules->get("InputfieldSelect");
             $f->attr('name', 'create_edit');
             $f->label = __('Create/Overwrite or Edit');
