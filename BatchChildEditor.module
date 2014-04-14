@@ -73,6 +73,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     public function ready() {
 
+        if(!$this->user->hasPermission("batch-child-editor")) return;
+
         // we're interested in page editor only
         if(wire('page')->process != 'ProcessPageEdit') return;
 
@@ -85,8 +87,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // don't even consider system templates
         if($this->editedPage->template->flags & Template::flagSystem) return;
 
-        // hook only if the template of the edited page has been chosen or the page has been chosen and user has permission
-        if(!$this->user->hasPermission("batch-child-editor")) return;
+        // hook only if the template of the edited page has been chosen or the page has been chosen
         if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
         if(count($this->data['enabledTemplates']) !== 0 && !in_array($this->editedPage->template->name, $this->data['enabledTemplates'])) return;
         if(count($this->data['enabledPages']) !== 0 && !in_array($this->editedPage->id, $this->data['enabledPages'])) return;
