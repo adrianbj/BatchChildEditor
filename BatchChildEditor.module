@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 12,
+            'version' => 13,
             'permanent' => false,
             'autoload' => true
         );
@@ -62,7 +62,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
 
     public function init() {
-        $this->addHookAfter("ProcessPageEdit::buildFormChildren", $this, "addScript");        
+        $this->addHookAfter("ProcessPageEdit::buildFormChildren", $this, "addScript");
     }
 
     public function addScript($event){
@@ -125,15 +125,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
         elseif($this->data['editModes'] == "edit" || $this->data['editModes'] == ""){
             $f = $this->modules->get("InputfieldHidden");
-            $f->attr('name', 'create_edit');            
+            $f->attr('name', 'create_edit');
             $f->value = "edit";
             $childEditSet->add($f);
         }
         else{
             $f = $this->modules->get("InputfieldHidden");
-            $f->attr('name', 'create_edit');            
-            $f->value = "create_overwrite";  
-            $childEditSet->add($f);          
+            $f->attr('name', 'create_edit');
+            $f->value = "create_overwrite";
+            $childEditSet->add($f);
         }
 
 
@@ -265,7 +265,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 else{
                     $cp = $this->pages->get($id);
                     if($i==1) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
-                }    
+                }
                 $cp->title = $childTitle;
                 if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && $this->data['overwriteNames'])){
                     $n = 0;
@@ -330,20 +330,21 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f = wire('modules')->get("InputfieldSelect");
         $f->attr('name', 'editModes');
         $f->label = __('Edit Modes');
-        $f->required = true;        
+        $f->required = true;
         $f->columnWidth = 33;
         $f->description = __('Which edit modes you want available. If both, then the user can decide.');
         $f->addOption("edit","Edit");
         $f->addOption("create_overwrite","Create/Overwrite");
         $f->addOption("both","Both");
         $f->value = $data['editModes'];
-        $f->notes = __("Note: The Edit mode is safer than the Create/Overwrite mode, because it is non-destructive.");
+        $f->notes = __("The Edit mode is safer than the Create/Overwrite mode, because it is non-destructive.\nOverwrite names options are disabled for Create/Overwrite because in this edit mode, all pages are recreated from scratch.");
         $wrapper->add($f);
 
 
         $f = wire('modules')->get("InputfieldCheckbox");
         $f->attr('name', 'overwriteNames');
         $f->label = __('Overwrite names');
+        $f->showIf = 'editModes!=create_overwrite';
         $f->columnWidth = 34;
         $f->description = __('Whether to overwrite the name of the page, and not just the title.');
         $f->attr('checked', $data['overwriteNames'] ? 'checked' : '' );
@@ -353,6 +354,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f = wire('modules')->get("InputfieldCheckbox");
         $f->attr('name', 'allowOverrideOverwriteNames');
         $f->label = __('Allow user to change "Overwrite Names" setting');
+        $f->showIf = 'editModes!=create_overwrite';
         $f->columnWidth = 33;
         $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
         $f->attr('checked', $data['allowOverrideOverwriteNames'] ? 'checked' : '' );
