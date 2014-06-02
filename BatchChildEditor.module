@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 14,
+            'version' => 15,
             'permanent' => false,
             'autoload' => true
         );
@@ -92,6 +92,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if(count($this->data['enabledTemplates']) !== 0 && !in_array($this->editedPage->template->name, $this->data['enabledTemplates'])) return;
         if(count($this->data['enabledPages']) !== 0 && !in_array($this->editedPage->id, $this->data['enabledPages'])) return;
 
+        //Make sure at least one edit mode has been selected in the config
+        if(count($this->data['editModes']) == 0) return;
+
         $this->addHookAfter('ProcessPageEdit::buildFormChildren', $this, 'addChildEditFieldset');
         $this->addHookAfter('ProcessPageEdit::processInput', $this, 'saveChildren');
     }
@@ -112,7 +115,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet->description = __('Allows quick editing of existing child page titles/names, or creation of new ones.');
         $childEditSet->collapsed = Inputfield::collapsedYes;
 
-        if(count($this->data['editModes'])>1 || $this->user->isSuperuser()){
+        if(count($this->data['editModes'])>1){
             $f = $this->modules->get("InputfieldSelect");
             $f->attr('name', 'edit_mode');
             $f->required = true;
@@ -242,13 +245,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
 
             foreach(explode("\r\n",$this->input->post->childTitlesOverwrite) as $childTitle){
-                $childTitle = trim(preg_replace("/[^A-Za-z0-9 -]/", '', $childTitle));
+                $childTitle = trim($this->sanitizer->text($childTitle));
                 if($childTitle=='') continue;
                 $np = new Page();
                 $np->parent = $pp;
                 $np->template = $childTemplate;
                 $np->title = $childTitle;
-                $np->name = $this->sanitizer->pageName($childTitle, Sanitizer::translate);
                 $np->of(false);
                 $np->save();
             }
@@ -257,13 +259,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
             $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
             foreach(explode("\r\n",$this->input->post->childTitlesAdd) as $childTitle){
-                $childTitle = trim(preg_replace("/[^A-Za-z0-9 -]/", '', $childTitle));
+                $childTitle = trim($this->sanitizer->text($childTitle));
                 if($childTitle=='') continue;
                 $np = new Page();
                 $np->parent = $pp;
                 $np->template = $childTemplate;
                 $np->title = $childTitle;
-                $np->name = $this->sanitizer->pageName($childTitle, Sanitizer::translate);
                 $np->of(false);
                 $np->save();
             }
@@ -272,7 +273,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         else{
             $i=0;
             foreach($this->input->post->individualChildTitles as $id => $childTitle){
-                $childTitle = trim(preg_replace("/[^A-Za-z0-9 -]/", '', $childTitle));
+                $childTitle = trim($this->sanitizer->text($childTitle));
                 $i++;
                 if($childTitle == '') continue; // in case someone clicked add Page, but left it blank
                 elseif(!$this->pages->get($id)->id){

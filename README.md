@@ -18,7 +18,7 @@ This module requires a new permission: "batch-child-editor". This permission is 
 
 Which pages and templates will have the editor available.
 
-Which edit modes should be availble to the user. Note that superusers have both modes regardless of this setting.
+Which edit modes should be availble to the user.
 
 Whether the name of the page should also be changed along with the title. This is a very important setting and should be considered carefully, especially is the child pages are URL accessible.
 
