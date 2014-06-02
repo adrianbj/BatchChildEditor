@@ -5,8 +5,9 @@ Processwire module for quick batch creation and editing of child page titles and
 
 This module adds a new section at the bottom of the Children Tab when editing a page. You can choose to:
 
-1. Create/Overwrite - This allows super quick creation and overwriting of child pages. You could create a list of pages in Word or whatever and just paste them in here and viola! There are checks that prevents this method working if there are any child pages with their own children or other content fields that are not empty. These checks are important because of the destructive way it deletes and recreates all the child pages.
-2. Edit - This allows you to rename existing child pages and add new child pages. It is non-destructive and so could be used on child pages that have their own children or other content fields (not just title). It is however not ideal for quick creation of new children or for changing child order.
+1. Add - adds newly entered page titles as child pages to the list of existing siblings. You could create a list of pages in Word or whatever and just paste them in here and viola!
+2. Overwrite - Works similarly to Add, but overwrites all the existing children. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
+3. Edit - This allows you to rename existing child pages and add new child pages. It is non-destructive and so could be used on child pages that have their own children or other content fields (not just title). It is however not ideal for quick creation of new children or for changing child order.
 
 ###Access permission
 
@@ -22,6 +23,8 @@ Which edit modes should be availble to the user. Note that superusers have both 
 Whether the name of the page should also be changed along with the title. This is a very important setting and should be considered carefully, especially is the child pages are URL accessible.
 
 Whether users can decide whether the name is also changed or not.
+
+Whether to disable content protection for existing child pages and their children.
 
 
 
