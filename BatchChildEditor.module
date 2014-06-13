@@ -22,9 +22,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 15,
+            'version' => 16,
             'permanent' => false,
-            'autoload' => true
+            'autoload' => true,
+            'icon'     => 'child'
         );
     }
 
