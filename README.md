@@ -7,7 +7,7 @@ This module adds a new section at the bottom of the Children Tab when editing a 
 
 1. Add - adds newly entered page titles as child pages to the list of existing siblings. You could create a list of pages in Word or whatever and just paste them in here and viola!
 2. Overwrite - Works similarly to Add, but overwrites all the existing children. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
-3. Edit - This allows you to rename existing child pages and add new child pages. It is non-destructive and so could be used on child pages that have their own children or other content fields (not just title). It is however not ideal for quick creation of new children or for changing child order.
+3. Edit - This allows you to rename existing child pages, add new child pages, sort, and delete pages. It is non-destructive and so could be used on child pages that have their own children or other content fields (not just title). It also has a modal edit link from the page name.
 
 ###Access permission
 

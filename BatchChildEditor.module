@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 16,
+            'version' => 17,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -138,9 +138,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f = $this->modules->get("InputfieldSelect");
             $f->required = true;
             $f->name = "childTemplate";
-            $f->showIf = "edit_mode!=edit";
+            //$f->showIf = "edit_mode!=edit";
             $f->label = __('Child Template');
-            $f->description = __('Choose the template for the children');
+            $f->description = __('Choose the template for new children');
             if(count($pp->template->childTemplates)==0){
                 //$f->addOption('');
                 foreach($this->templates as $t) {
@@ -153,7 +153,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $f->addOption($this->templates->get($t)->name);
                 }
             }
-            if($pp->child()->id) $f->attr('value', $pp->child()->template);
+            if($pp->children()->count()>0 && $pp->children()->last()->id) $f->attr('value', $pp->children()->last()->template);
             $childEditSet->add($f);
         }
 
@@ -186,26 +186,50 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('value', '');
         $childEditSet->append($f);
 
-        $fieldset = $this->modules->get("InputfieldFieldset");
-        $fieldset->attr('id', 'edit');
-        $fieldset->showIf = "edit_mode=edit";
-        $fieldset->label = "Edit Existing Child Pages";
-        $fieldset->description = "This option allows editing of existing child pages, without deleting existing pages, or affecting the values of other fields on these pages.";
-        foreach($pp->children() as $cp){
-            $f = $this->modules->get("InputfieldText");
-            $f->name = "individualChildTitles[$cp->id]";
-            $f->label = $this->_("&nbsp;");
-            $f->description = $this->_("");
-            $f->notes = $this->_("");
-            $f->attr('value', $cp->title);
-            $fieldset->append($f);
-        }
-        //Add new page button
-        $addpage = $this->modules->get('InputfieldMarkup');
-        $addpage->attr('value', "<p><a class='batch_add' href='javascript:void(0)'>" . $this->_('add Page') . "</a>");
-        $fieldset->append($addpage);
+        $results = $this->modules->get('InputfieldMarkup');
+        $results->attr('id', 'edit');
+        $results->showIf = "edit_mode=edit";
+        $results->label = $this->_('Edit Existing Child Pages');
+        $table = $this->modules->get('MarkupAdminDataTable');
+        $table->setSortable(true);
+        $table->setEncodeEntities(false);
 
-        $childEditSet->append($fieldset);
+        //Build the table
+        $rowNum=1;
+        //Initial table row if no children already with blank name and delete button cells
+        if(count($pp->children)==0){
+            $row = array(
+                "<i style='cursor:move' class='fa fa-arrows InputfieldTableRowSortHandle'></i>",
+                "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
+                "",
+                ""
+            );
+            $table->row($row);
+            $rowNum++;
+        }
+        foreach ($pp->children() as $cp) {
+
+            if (!$cp->editable()) continue; //Only display if current user can edit
+
+            $row = array(
+                "<i style='cursor:move'  class='fa fa-arrows InputfieldTableRowSortHandle'></i>",
+                "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' />",
+                '<a class="childTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#">'.$cp->name.'</a>',
+                "<i style='cursor:pointer' class='fa fa-trash-o InputfieldTableRowDeleteLink'></i>"
+            );
+            $table->row($row);
+            $rowNum++;
+        }
+
+        $hiddenInfo = "<input name='idsToDelete' class='InputfieldTableRowDelete' type='hidden' value='' />";
+
+        $button = $this->wire('modules')->get('InputfieldButton');
+        $button->icon = 'plus-circle';
+        $button->value = $this->_x('Add New', 'button');
+        $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldTableAddRow');
+
+        $results->attr('value', $hiddenInfo . '<div class="childTableContainer">' . $table->render() . '</div>' . $button->render());
+        $childEditSet->append($results);
 
         $form->add($childEditSet);
     }
@@ -222,18 +246,21 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $pp = $event->object->getPage();
 
+        //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
+        $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
+
         //Overwrite Mode
         if($this->input->post->edit_mode == "overwrite"){
 
             if(!$this->data['disableContentProtection']){
                 foreach($pp->children("include=all") as $cp){
                     if($cp->numChildren>0){
-                        $this->error("You cannot bulk edit these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first.");
+                        $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first."));
                         return;
                     }
                     foreach($cp->fields as $cpfield){
                         if($cpfield->name != 'title' && $cp->$cpfield !=''){
-                            $this->error("You cannot bulk edit these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first.");
+                            $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first."));
                             return;
                         }
                     }
@@ -241,9 +268,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
 
             foreach($pp->children("include=all") as $cp) $this->pages->delete($cp, true);
-
-            //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
-            $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
 
             foreach(explode("\r\n",$this->input->post->childTitlesOverwrite) as $childTitle){
                 $childTitle = trim($this->sanitizer->text($childTitle));
@@ -257,8 +281,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
         }
         elseif($this->input->post->edit_mode == "add"){
-            //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
-            $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
+
             foreach(explode("\r\n",$this->input->post->childTitlesAdd) as $childTitle){
                 $childTitle = trim($this->sanitizer->text($childTitle));
                 if($childTitle=='') continue;
@@ -272,29 +295,43 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
         //Edit Existing Mode
         else{
+            //delete any pages marked for deletion
+            $idsToDelete = explode(',', $this->input->post->idsToDelete);
+            if($this->input->post->idsToDelete!=''){
+                foreach($idsToDelete as $id){
+                    if($id!='') $this->pages->delete($this->pages->get($id));
+                }
+            }
+
             $i=0;
             foreach($this->input->post->individualChildTitles as $id => $childTitle){
+                if(in_array($id, $idsToDelete)) continue; //ignore pages that have just been deleted
                 $childTitle = trim($this->sanitizer->text($childTitle));
                 $i++;
                 if($childTitle == '') continue; // in case someone clicked add Page, but left it blank
-                elseif(!$this->pages->get($id)->id){
+                elseif(strpos($id, 'new') !== FALSE){
                     $cp = new Page;
                     $cp->parent = $pp;
                     $cp->template = $childTemplate;
                 }
                 else{
                     $cp = $this->pages->get($id);
-                    if($i==1) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
+                    //if($i==1 && !$this->input->post->childTemplate) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
                 }
                 $cp->title = $childTitle;
-                if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && $this->data['overwriteNames'])){
+                if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$this->data['allowOverrideOverwriteNames'] && $this->data['overwriteNames'])){
                     $n = 0;
                     $pageName = $this->sanitizer->pageName($childTitle, Sanitizer::translate);
-                    do {
-                        $name = $pageName . ($n ? "-$n" : '');
-                        $child = $pp->child("name=$name"); // see if another page already has the same name
-                        $n++;
-                    } while($child->id);
+                    if($cp->isNew()){
+                        do {
+                            $name = $pageName . ($n ? "-$n" : '');
+                            $child = $pp->child("name=$name"); // see if another page already has the same name
+                            $n++;
+                        } while($child->id);
+                    }
+                    else{
+                        $name = $pageName;
+                    }
                     $cp->name = $name;
                 }
                 $cp->sort = $i;
@@ -303,7 +340,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
         }
 
-        $this->message("Changes to child pages were successfully completed");
+        $this->message($this->_("Changes to child pages were successfully completed"));
 
     }
 
@@ -408,8 +445,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $p->title = $this->_('Use Batch Child Editor');
             $p->save();
             // tell the user we created this module's permission
-            $this->message("Created New Permission: batch-child-editor");
-            $this->message("Assigned batch-child-editor permission to superuser");
+            $this->message($this->_("Created New Permission: batch-child-editor"));
+            $this->message($this->_("Assigned batch-child-editor permission to superuser"));
         }
 
         $su = $this->roles->get("superuser");
@@ -427,7 +464,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $permission = $this->permissions->get('batch-child-editor');
         if ($permission->id) {
             $permission->delete();
-            $this->message("Deleted Permission: batch-child-editor");
+            $this->message($this->_("Deleted Permission: batch-child-editor"));
         }
     }
 
