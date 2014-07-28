@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 17,
+            'version' => 18,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -299,7 +299,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $idsToDelete = explode(',', $this->input->post->idsToDelete);
             if($this->input->post->idsToDelete!=''){
                 foreach($idsToDelete as $id){
-                    if($id!='') $this->pages->delete($this->pages->get($id));
+                    if($id!='') $this->pages->delete($this->pages->get($id), true);
                 }
             }
 
