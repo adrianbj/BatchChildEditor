@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 18,
+            'version' => 19,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -107,7 +107,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         $childPages = '';
-        foreach($pp->children() as $cp) $childPages .= "\n{$cp->title}";
+        foreach($pp->children("include=all") as $cp) $childPages .= "\n{$cp->title}";
 
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
@@ -153,7 +153,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $f->addOption($this->templates->get($t)->name);
                 }
             }
-            if($pp->children()->count()>0 && $pp->children()->last()->id) $f->attr('value', $pp->children()->last()->template);
+            if($pp->children("include=all")->count()>0 && $pp->children("include=all")->last()->id) $f->attr('value', $pp->children("include=all")->last()->template);
             $childEditSet->add($f);
         }
 
@@ -207,7 +207,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $table->row($row);
             $rowNum++;
         }
-        foreach ($pp->children() as $cp) {
+        foreach ($pp->children("include=all") as $cp) {
 
             if (!$cp->editable()) continue; //Only display if current user can edit
 
@@ -299,7 +299,22 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $idsToDelete = explode(',', $this->input->post->idsToDelete);
             if($this->input->post->idsToDelete!=''){
                 foreach($idsToDelete as $id){
-                    if($id!='') $this->pages->delete($this->pages->get($id), true);
+                    $ptod = $this->pages->get($id);
+
+                    if(!$this->data['disableContentProtection']){
+                        if($ptod->numChildren>0){
+                            $this->error($this->_("You cannot delete this child page, because it has a child page of its own. You can prevent this check by disabling Content Protection in the module config settings."));
+                            return;
+                        }
+                        foreach($ptod->fields as $ptodfield){
+                            if($ptodfield->name != 'title' && $ptod->$ptodfield !=''){
+                                $this->error($this->_("You cannot delete this child page, because it has a field which is not empty. You can prevent this check by disabling Content Protection in the module config settings."));
+                                return;
+                            }
+                        }
+                    }
+
+                    if($id!='') $this->pages->delete($ptod, true);
                 }
             }
 
