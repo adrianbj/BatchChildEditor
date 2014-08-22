@@ -1,7 +1,7 @@
 BatchChildEditor
 ================
 
-Processwire module for quick batch creation and editing of child page titles and names.
+Processwire module for quick batch creation, editing, sorting, and deletion of all children under a given page.
 
 This module adds a new section at the bottom of the Children Tab when editing a page. You can choose to:
 
