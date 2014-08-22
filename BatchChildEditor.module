@@ -1,10 +1,10 @@
 <?php
 
 /**
- * ProcessWire Batch creation and editing of child page titles
+ * ProcessWire Batch creation and editing of pages
  * by Adrian Jones
  *
- * Quick batch editing of all child page, so long as they only have a title field.
+ * Quick batch creation, editing, sorting, and deletion of all children under a given page.
  *
  * ProcessWire 2.x
  * Copyright (C) 2011 by Ryan Cramer
@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return array(
             'title' => 'Batch child editor',
-            'summary' => 'Quick batch creation and editing of child page titles and names.',
+            'summary' => 'Quick batch creation, editing, sorting, and deletion of all children under a given page.',
             'href' => '',
             'version' => 19,
             'permanent' => false,
