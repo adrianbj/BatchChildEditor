@@ -1,10 +1,10 @@
 <?php
 
 /**
- * ProcessWire Batch creation and editing of pages
+ * ProcessWire Batch creation and editing of child page titles
  * by Adrian Jones
  *
- * Quick batch creation, editing, sorting, and deletion of all children under a given page.
+ * Quick batch editing of all child page, so long as they only have a title field.
  *
  * ProcessWire 2.x
  * Copyright (C) 2011 by Ryan Cramer
@@ -20,9 +20,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return array(
             'title' => 'Batch child editor',
-            'summary' => 'Quick batch creation, editing, sorting, and deletion of all children under a given page.',
+            'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 19,
+            'version' => 20,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -199,7 +199,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //Initial table row if no children already with blank name and delete button cells
         if(count($pp->children)==0){
             $row = array(
-                "<i style='cursor:move' class='fa fa-arrows InputfieldTableRowSortHandle'></i>",
+                "<i style='cursor:move' class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
                 "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
                 "",
                 ""
@@ -212,23 +212,23 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if (!$cp->editable()) continue; //Only display if current user can edit
 
             $row = array(
-                "<i style='cursor:move'  class='fa fa-arrows InputfieldTableRowSortHandle'></i>",
+                "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
                 "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' />",
-                '<a class="childTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#">'.$cp->name.'</a>',
-                "<i style='cursor:pointer' class='fa fa-trash-o InputfieldTableRowDeleteLink'></i>"
+                '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#">'.$cp->name.'</a>',
+                "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>"
             );
             $table->row($row);
             $rowNum++;
         }
 
-        $hiddenInfo = "<input name='idsToDelete' class='InputfieldTableRowDelete' type='hidden' value='' />";
+        $hiddenInfo = "<input name='idsToDelete' class='InputfieldChildTableRowDelete' type='hidden' value='' />";
 
         $button = $this->wire('modules')->get('InputfieldButton');
         $button->icon = 'plus-circle';
         $button->value = $this->_x('Add New', 'button');
-        $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldTableAddRow');
+        $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldChildTableAddRow');
 
-        $results->attr('value', $hiddenInfo . '<div class="childTableContainer">' . $table->render() . '</div>' . $button->render());
+        $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . $button->render());
         $childEditSet->append($results);
 
         $form->add($childEditSet);

@@ -7,7 +7,7 @@ function getUrlVars(url) {
 }
 
 
-function childTableDialog() {
+function childChildTableDialog() {
 
     var $a = $(this);
     var url = $a.attr('data-url');
@@ -85,20 +85,20 @@ function childTableDialog() {
 }
 
 
-function childTableSortable($table) {
+function childChildTableSortable($table) {
     if(!$table.is("tbody")) $table = $table.find("tbody");
     $table.sortable({
         axis: 'y',
-        handle: '.InputfieldTableRowSortHandle'
+        handle: '.InputfieldChildTableRowSortHandle'
     });
 }
 
 $(document).ready(function() {
 
-    $(document).on('click', '.childTableEdit', childTableDialog);
+    $(document).on('click', '.childChildTableEdit', childChildTableDialog);
 
     var i=0;
-    $('button.InputfieldTableAddRow').click(function() {
+    $('button.InputfieldChildTableAddRow').click(function() {
         i++;
         var $table = $(this).closest('.Inputfield').find('table');
         var $tbody = $table.find('tbody');
@@ -109,7 +109,7 @@ $(document).ready(function() {
         $row.find("td:eq(3)").html(''); //empty the delete button cell
 
         //in case the first row was set for deletion - the new row, cloned from this, would also be set for deletion, so need to remove class and restore opacity
-        $row.removeClass('InputfieldTableRowDeleted');
+        $row.removeClass('InputfieldChildTableRowDeleted');
         $row.css('opacity', 1.0);
 
         $row.find(":input").each(function() {
@@ -117,7 +117,7 @@ $(document).ready(function() {
             $input.attr("name", "individualChildTitles[new_"+i+"]");
             $input.attr('value', '');
             $input.attr('id', '');
-            if($input.is('.InputfieldTableRowSort')) $input.val(numRows);
+            if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
         });
 
         $tbody.append($row);
@@ -126,26 +126,26 @@ $(document).ready(function() {
         return false;
     });
 
-    $("table.AdminDataTableSortable").each(function() {
-        childTableSortable($(this));
+    $("table.AdminDataChildTableSortable").each(function() {
+        childChildTableSortable($(this));
     });
 
     // row deletion
     var deleteIds;
-    $(document).on('click', '.InputfieldTableRowDeleteLink', function() {
+    $(document).on('click', '.InputfieldChildTableRowDeleteLink', function() {
         var $row = $(this).closest('tr');
-        var $input = $('.InputfieldTableRowDelete');
+        var $input = $('.InputfieldChildTableRowDelete');
 
-        if($row.is('.InputfieldTableRowDeleted')) {
+        if($row.is('.InputfieldChildTableRowDeleted')) {
             // undelete
-            $row.removeClass('InputfieldTableRowDeleted');
+            $row.removeClass('InputfieldChildTableRowDeleted');
             $row.css('opacity', 1.0);
             deleteIds = $input.val().replace($row.find("td:eq(1)").find("input").attr("id") + ',', '');
             $input.val(deleteIds);
 
         } else {
             // delete
-            $row.addClass('InputfieldTableRowDeleted');
+            $row.addClass('InputfieldChildTableRowDeleted');
             $row.css('opacity', 0.3);
             deleteIds = $input.val() + $row.find("td:eq(1)").find("input").attr("id") + ',';
             $input.val(deleteIds);
