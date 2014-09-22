@@ -126,7 +126,7 @@ $(document).ready(function() {
         return false;
     });
 
-    $("table.AdminDataChildTableSortable").each(function() {
+    $("table.AdminDataTableSortable").each(function() {
         childChildTableSortable($(this));
     });
 
