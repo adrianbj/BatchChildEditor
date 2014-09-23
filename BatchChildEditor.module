@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => '',
-            'version' => 22,
+            'version' => 23,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -437,6 +437,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f = wire('modules')->get("InputfieldCheckbox");
         $f->attr('name', 'disableContentProtection');
         $f->label = __('Disable Content Protection');
+        $f->showIf = "editModes=overwrite";
         $f->columnWidth = 25;
         $f->description = __('If this is checked, overwrite mode will destructively replace children even if they have additional field content and grandchildren.');
         $f->notes = __('This can be extremely destructive, use with extreme caution!!!');
