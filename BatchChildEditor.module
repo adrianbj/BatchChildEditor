@@ -21,8 +21,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         return array(
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
-            'href' => '',
-            'version' => 24,
+            'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
+            'version' => 25,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
