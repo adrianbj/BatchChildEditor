@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 27,
+            'version' => 28,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -108,7 +108,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         $childPages = '';
-        foreach($pp->children("include=all") as $cp) $childPages .= "\n{$cp->title}";
+        foreach($pp->children("include=all") as $cp) {
+            if(!$cp->is(Page::statusSystemID)) $childPages .= "\n{$cp->title}";
+        }
 
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
@@ -210,7 +212,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
         foreach ($pp->children("include=all") as $cp) {
 
-            if (!$cp->editable()) continue; //Only display if current user can edit
+            if (!$cp->editable() || $cp->is(Page::statusSystemID)) continue; //Only display if current user can edit and also if it is not a system page (404, admin, trash etc)
 
             $row = array(
                 "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
@@ -268,7 +270,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }
 
-            foreach($pp->children("include=all") as $cp) $this->pages->delete($cp, true);
+            foreach($pp->children("include=all") as $cp) {
+                if(!$cp->is(Page::statusSystemID)) $this->pages->delete($cp, true);
+            }
 
             foreach(explode("\r\n",$this->input->post->childTitlesOverwrite) as $childTitle){
                 $childTitle = trim($this->sanitizer->text($childTitle));
