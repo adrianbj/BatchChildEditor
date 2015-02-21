@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 28,
+            'version' => 29,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -359,9 +359,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $cp->save();
             }
         }
-
-        $this->message($this->_("Changes to child pages were successfully completed"));
-
     }
 
 
