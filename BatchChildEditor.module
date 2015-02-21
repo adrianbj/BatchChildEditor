@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 26,
+            'version' => 27,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -89,8 +89,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // don't even consider system templates
         if($this->editedPage->template->flags & Template::flagSystem) return;
 
-        // hook only if the template of the edited page has been chosen or the page has been chosen
-        if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
+        // if any templates or pages have been selected, then only hook if the template of the edited page has been chosen or the page has been chosen
+        //if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
         if(count($this->data['enabledTemplates']) !== 0 && !in_array($this->editedPage->template->name, $this->data['enabledTemplates'])) return;
         if(count($this->data['enabledPages']) !== 0 && !in_array($this->editedPage->id, $this->data['enabledPages'])) return;
 
@@ -378,7 +378,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledTemplates->attr('name+id', 'enabledTemplates');
         $fieldEnabledTemplates->label = __('Enabled templates', __FILE__);
         $fieldEnabledTemplates->columnWidth = 50;
-        $fieldEnabledTemplates->description = __('The batch editing option will only be available for the selected templates. You can choose from templates, pages, or both.', __FILE__);
+        $fieldEnabledTemplates->description = __("The batch editing option will only be available for the selected templates.\nNB Leave blank to allow all templates.", __FILE__);
         $fieldEnabledTemplates->setAsmSelectOption('sortable', false);
 
         // populate with all available templates
@@ -394,7 +394,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledPages->attr('name+id', 'enabledPages');
         $fieldEnabledPages->label = __('Enabled pages', __FILE__);
         $fieldEnabledPages->columnWidth = 50;
-        $fieldEnabledPages->description = __('The batch editing option will only be available for the selected pages. You can choose from templates, pages, or both.', __FILE__);
+        $fieldEnabledPages->description = __("The batch editing option will only be available for the selected pages.\nNB Leave blank to allow all pages.", __FILE__);
         $fieldEnabledPages->attr('title', __('Enable page', __FILE__));
         if(isset($data['enabledPages'])) $fieldEnabledPages->value = $data['enabledPages'];
         $wrapper->add($fieldEnabledPages);
