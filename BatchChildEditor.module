@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 29,
+            'version' => 30,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -35,6 +35,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      *
      */
     protected $data = array();
+    protected $childPages = '';
 
 
    /**
@@ -107,10 +108,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $pp = $event->object->getPage();
         $form = $event->return;
 
-        $childPages = '';
         foreach($pp->children("include=all") as $cp) {
-            if(!$cp->is(Page::statusSystemID)) $childPages .= "\n{$cp->title}";
+            if(!$cp->is(Page::statusSystemID)) $this->childPages .= "{$cp->title}\r\n";
         }
+        $this->childPages = rtrim($this->childPages, "\r\n");
 
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
@@ -178,7 +179,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->label = $this->_("Overwrite Child Pages");
         $f->description = $this->_("Editing this field will overwrite all the child page titles represented here.");
         $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created." . ($this->data['disableContentProtection'] ? " It will also delete any other field content in these pages and delete all grandchildren." : ""));
-        $f->attr('value', $childPages);
+        $f->attr('value', $this->childPages);
         $childEditSet->append($f);
 
         $f = $this->modules->get("InputfieldTextarea");
@@ -254,6 +255,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //Overwrite Mode
         if($this->input->post->edit_mode == "overwrite"){
+
+            // if overwrite textarea content hasn't changed, escape now to prevent unwanted deletion and recreation of pages
+            if($this->input->post->childTitlesOverwrite == $this->childPages) return;
 
             if(!$this->data['disableContentProtection']){
                 foreach($pp->children("include=all") as $cp){
