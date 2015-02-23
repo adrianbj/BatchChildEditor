@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 30,
+            'version' => 31,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -49,6 +49,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "editModes" => "edit",
                 "overwriteNames" => "",
                 "allowOverrideOverwriteNames" => "",
+                "trashOrDelete" => "trash",
                 "disableContentProtection" => ""
             );
     }
@@ -117,14 +118,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
         $childEditSet->label = __('Child Batch Editor');
-        $childEditSet->description = __('Allows quick editing of existing child page titles/names, or creation of new ones.');
         $childEditSet->collapsed = Inputfield::collapsedYes;
 
         if(count($this->data['editModes'])>1){
-            $f = $this->modules->get("InputfieldSelect");
+            $f = $this->modules->get("InputfieldRadios");
             $f->attr('name', 'edit_mode');
-            $f->required = true;
             $f->label = __('Edit, Add, or Overwrite');
+            $f->optionColumns = 1;
             $f->description = __('Whether to edit, add to, or overwrite the entire list of child pages. Choose an option to read more about how it works.');
             foreach($this->data['editModes'] as $editMode){
                 $f->addOption($editMode, ucfirst($editMode));
@@ -142,11 +142,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f = $this->modules->get("InputfieldSelect");
             $f->required = true;
             $f->name = "childTemplate";
-            //$f->showIf = "edit_mode!=edit";
+            $f->showIf = "edit_mode.count>0";
             $f->label = __('Child Template');
             $f->description = __('Choose the template for new children');
             if(count($pp->template->childTemplates)==0){
-                //$f->addOption('');
                 foreach($this->templates as $t) {
                     if(!($t->flags & Template::flagSystem)) $f->addOption($t->name);
                 }
@@ -172,68 +171,73 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->add($f);
         }
 
-
-        $f = $this->modules->get("InputfieldTextarea");
-        $f->name = "childTitlesOverwrite";
-        $f->showIf = "edit_mode=overwrite";
-        $f->label = $this->_("Overwrite Child Pages");
-        $f->description = $this->_("Editing this field will overwrite all the child page titles represented here.");
-        $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created." . ($this->data['disableContentProtection'] ? " It will also delete any other field content in these pages and delete all grandchildren." : ""));
-        $f->attr('value', $this->childPages);
-        $childEditSet->append($f);
-
-        $f = $this->modules->get("InputfieldTextarea");
-        $f->name = "childTitlesAdd";
-        $f->showIf = "edit_mode=add";
-        $f->label = $this->_("Add Child Pages");
-        $f->description = $this->_("Editing this field will add all the child page titles listed here to the existing set of child pages.");
-        $f->attr('value', '');
-        $childEditSet->append($f);
-
-        $results = $this->modules->get('InputfieldMarkup');
-        $results->attr('id', 'edit');
-        $results->showIf = "edit_mode=edit";
-        $results->label = $this->_('Edit Existing Child Pages');
-        $table = $this->modules->get('MarkupAdminDataTable');
-        $table->setSortable(true);
-        $table->setEncodeEntities(false);
-
-        //Build the table
-        $rowNum=1;
-        //Initial table row if no children already with blank name and delete button cells
-        if(count($pp->children)==0){
-            $row = array(
-                "<i style='cursor:move' class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
-                "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
-                "",
-                ""
-            );
-            $table->row($row);
-            $rowNum++;
-        }
-        foreach ($pp->children("include=all") as $cp) {
-
-            if (!$cp->editable() || $cp->is(Page::statusSystemID)) continue; //Only display if current user can edit and also if it is not a system page (404, admin, trash etc)
-
-            $row = array(
-                "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
-                "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' />",
-                '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#">'.$cp->name.'</a>',
-                "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>"
-            );
-            $table->row($row);
-            $rowNum++;
+        if(in_array('overwrite', $this->data['editModes'])) {
+            $f = $this->modules->get("InputfieldTextarea");
+            $f->name = "childTitlesOverwrite";
+            $f->showIf = "edit_mode=overwrite";
+            $f->label = $this->_("Overwrite Child Pages");
+            $f->description = $this->_("Editing this field will overwrite all the child page titles represented here.");
+            $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created." . ($this->data['disableContentProtection'] ? " It will also delete any other field content in these pages and delete all grandchildren." : ""));
+            $f->attr('value', $this->childPages);
+            $childEditSet->append($f);
         }
 
-        $hiddenInfo = "<input name='idsToDelete' class='InputfieldChildTableRowDelete' type='hidden' value='' />";
+        if(in_array('add', $this->data['editModes'])) {
+            $f = $this->modules->get("InputfieldTextarea");
+            $f->name = "childTitlesAdd";
+            $f->showIf = "edit_mode=add";
+            $f->label = $this->_("Add Child Pages");
+            $f->description = $this->_("Editing this field will add all the child page titles listed here to the existing set of child pages.");
+            $f->attr('value', '');
+            $childEditSet->append($f);
+        }
 
-        $button = $this->wire('modules')->get('InputfieldButton');
-        $button->icon = 'plus-circle';
-        $button->value = $this->_x('Add New', 'button');
-        $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldChildTableAddRow');
+        if(in_array('edit', $this->data['editModes'])) {
+            $results = $this->modules->get('InputfieldMarkup');
+            $results->attr('id', 'edit');
+            $results->showIf = "edit_mode=edit";
+            $results->label = $this->_('Edit Existing Child Pages');
+            $table = $this->modules->get('MarkupAdminDataTable');
+            $table->setSortable(true);
+            $table->setEncodeEntities(false);
 
-        $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . $button->render());
-        $childEditSet->append($results);
+            //Build the table
+            $rowNum=1;
+            //Initial table row if no children already with blank name and delete button cells
+            if(count($pp->children)==0){
+                $row = array(
+                    "<i style='cursor:move' class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
+                    "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
+                    "",
+                    ""
+                );
+                $table->row($row);
+                $rowNum++;
+            }
+            foreach ($pp->children("include=all") as $cp) {
+
+                if (!$cp->editable() || $cp->is(Page::statusSystemID)) continue; //Only display if current user can edit and also if it is not a system page (404, admin, trash etc)
+
+                $row = array(
+                    "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
+                    "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' />",
+                    '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#">'.$cp->name.'</a>',
+                    "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>"
+                );
+                $table->row($row);
+                $rowNum++;
+            }
+
+            $hiddenInfo = "<input name='idsToDelete' class='InputfieldChildTableRowDelete' type='hidden' value='' />";
+
+            $button = $this->wire('modules')->get('InputfieldButton');
+            $button->icon = 'plus-circle';
+            $button->value = $this->_x('Add New', 'button');
+            $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldChildTableAddRow');
+
+            $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . $button->render());
+            $childEditSet->append($results);
+        }
 
         $form->add($childEditSet);
     }
@@ -241,12 +245,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     public function saveChildren(HookEvent $event){
 
+        // early exit if no edit mode has been selected
+        if(!$this->input->post->edit_mode) return;
+
         // ProcessPageEdit's processInput function may go recursive, so we want to skip
         // the instances where it does that by checking the second argument named "level"
         $level = $event->arguments(1);
         if($level > 0) return;
-
-        if($this->input->post->edit_mode == '') return; //if no edit type selected, leave now
 
         $pp = $event->object->getPage();
 
@@ -275,7 +280,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
 
             foreach($pp->children("include=all") as $cp) {
-                if(!$cp->is(Page::statusSystemID)) $this->pages->delete($cp, true);
+                if(!$cp->is(Page::statusSystemID)) {
+                    $this->data['trashOrDelete'] == 'delete' ? $this->pages->delete($cp, true) : $this->pages->trash($cp);
+                }
             }
 
             foreach(explode("\r\n",$this->input->post->childTitlesOverwrite) as $childTitle){
@@ -305,8 +312,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //Edit Existing Mode
         else{
             //delete any pages marked for deletion
-            $idsToDelete = explode(',', $this->input->post->idsToDelete);
             if($this->input->post->idsToDelete!=''){
+                $idsToDelete = explode(',', $this->input->post->idsToDelete);
                 foreach($idsToDelete as $id){
                     $ptod = $this->pages->get($id);
 
@@ -323,7 +330,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         }
                     }
 
-                    if($id!='') $this->pages->delete($ptod, true);
+                    if($id!='') {
+                        $this->data['trashOrDelete'] == 'delete' ? $this->pages->delete($ptod, true) : $this->pages->trash($ptod);
+                    }
                 }
             }
 
@@ -359,8 +368,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $cp->name = $name;
                 }
                 $cp->sort = $i;
-                $cp->of(false);
-                $cp->save();
+
+                if($cp->isChanged()) {
+                    $cp->of(false);
+                    $cp->save();
+                }
             }
         }
     }
@@ -409,7 +421,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'editModes');
         $f->label = __('Edit Modes');
         $f->required = true;
-        $f->columnWidth = 25;
+        $f->columnWidth = 20;
         $f->description = __('Which edit modes you want available. If both, then the user can decide.');
         $f->addOption("edit","Edit");
         $f->addOption("add","Add");
@@ -423,7 +435,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'overwriteNames');
         $f->label = __('Overwrite names');
         $f->showIf = "editModes=edit";
-        $f->columnWidth = 25;
+        $f->columnWidth = 20;
         $f->description = __('Whether to overwrite the name of the page, and not just the title.');
         $f->attr('checked', $data['overwriteNames'] ? 'checked' : '' );
         $f->notes = __("Only relevant for Edit mode. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
@@ -433,17 +445,27 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'allowOverrideOverwriteNames');
         $f->label = __('Allow user to change "Overwrite Names" setting');
         $f->showIf = "editModes=edit";
-        $f->columnWidth = 25;
+        $f->columnWidth = 20;
         $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
         $f->attr('checked', $data['allowOverrideOverwriteNames'] ? 'checked' : '' );
         $f->notes = __("Only relevant for Edit mode.");
+        $wrapper->add($f);
+
+        $f = wire('modules')->get("InputfieldRadios");
+        $f->attr('name', 'trashOrDelete');
+        $f->label = __('Trash or Delete');
+        $f->columnWidth = 20;
+        $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
+        $f->addOption("trash","Trash");
+        $f->addOption("delete","Delete");
+        $f->value = $data['trashOrDelete'];
         $wrapper->add($f);
 
         $f = wire('modules')->get("InputfieldCheckbox");
         $f->attr('name', 'disableContentProtection');
         $f->label = __('Disable Content Protection');
         $f->showIf = "editModes=overwrite";
-        $f->columnWidth = 25;
+        $f->columnWidth = 20;
         $f->description = __('If checked, overwrite mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
         $f->notes = __("This can be extremely destructive, use with extreme caution!!!");
         $f->attr('checked', $data['disableContentProtection'] ? 'checked' : '' );
