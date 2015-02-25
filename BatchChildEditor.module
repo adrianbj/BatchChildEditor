@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 31,
+            'version' => 32,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -49,6 +49,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "editModes" => "edit",
                 "overwriteNames" => "",
                 "allowOverrideOverwriteNames" => "",
+                "loadOpen" => "",
                 "trashOrDelete" => "trash",
                 "disableContentProtection" => ""
             );
@@ -118,13 +119,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
         $childEditSet->label = __('Child Batch Editor');
-        $childEditSet->collapsed = Inputfield::collapsedYes;
+        if(!$this->data['loadOpen']) $childEditSet->collapsed = Inputfield::collapsedYes;
 
         if(count($this->data['editModes'])>1){
             $f = $this->modules->get("InputfieldRadios");
             $f->attr('name', 'edit_mode');
             $f->label = __('Edit, Add, or Overwrite');
             $f->optionColumns = 1;
+            $f->columnWidth = 33;
             $f->description = __('Whether to edit, add to, or overwrite the entire list of child pages. Choose an option to read more about how it works.');
             foreach($this->data['editModes'] as $editMode){
                 $f->addOption($editMode, ucfirst($editMode));
@@ -144,6 +146,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->name = "childTemplate";
             $f->showIf = "edit_mode.count>0";
             $f->label = __('Child Template');
+            $f->columnWidth = 34;
             $f->description = __('Choose the template for new children');
             if(count($pp->template->childTemplates)==0){
                 foreach($this->templates as $t) {
@@ -165,6 +168,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->attr('name', 'userOverwriteNames');
             $f->showIf = "edit_mode=edit";
             $f->label = __('Overwrite names');
+            $f->columnWidth = 33;
             $f->description = __('Whether to overwrite the name of the page, and not just the title.');
             $f->attr('checked', $this->data['overwriteNames'] ? 'checked' : '' );
             $f->notes = __("This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
@@ -197,6 +201,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $results->attr('id', 'edit');
             $results->showIf = "edit_mode=edit";
             $results->label = $this->_('Edit Existing Child Pages');
+            $results->description = $this->_('You can edit the page titles, sort, delete, or edit pages in a modal popup (via the page name link).');
             $table = $this->modules->get('MarkupAdminDataTable');
             $table->setSortable(true);
             $table->setEncodeEntities(false);
@@ -421,7 +426,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'editModes');
         $f->label = __('Edit Modes');
         $f->required = true;
-        $f->columnWidth = 20;
+        $f->columnWidth = 25;
         $f->description = __('Which edit modes you want available. If both, then the user can decide.');
         $f->addOption("edit","Edit");
         $f->addOption("add","Add");
@@ -435,7 +440,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'overwriteNames');
         $f->label = __('Overwrite names');
         $f->showIf = "editModes=edit";
-        $f->columnWidth = 20;
+        $f->columnWidth = 25;
         $f->description = __('Whether to overwrite the name of the page, and not just the title.');
         $f->attr('checked', $data['overwriteNames'] ? 'checked' : '' );
         $f->notes = __("Only relevant for Edit mode. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
@@ -445,16 +450,26 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'allowOverrideOverwriteNames');
         $f->label = __('Allow user to change "Overwrite Names" setting');
         $f->showIf = "editModes=edit";
-        $f->columnWidth = 20;
+        $f->columnWidth = 25;
         $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
         $f->attr('checked', $data['allowOverrideOverwriteNames'] ? 'checked' : '' );
         $f->notes = __("Only relevant for Edit mode.");
         $wrapper->add($f);
 
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'disableContentProtection');
+        $f->label = __('Disable Content Protection');
+        $f->showIf = "editModes=overwrite";
+        $f->columnWidth = 25;
+        $f->description = __('If checked, overwrite mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
+        $f->notes = __("This can be extremely destructive, use with extreme caution!!!");
+        $f->attr('checked', $data['disableContentProtection'] ? 'checked' : '' );
+        $wrapper->add($f);
+
         $f = wire('modules')->get("InputfieldRadios");
         $f->attr('name', 'trashOrDelete');
         $f->label = __('Trash or Delete');
-        $f->columnWidth = 20;
+        $f->columnWidth = 50;
         $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
         $f->addOption("trash","Trash");
         $f->addOption("delete","Delete");
@@ -462,13 +477,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $wrapper->add($f);
 
         $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'disableContentProtection');
-        $f->label = __('Disable Content Protection');
-        $f->showIf = "editModes=overwrite";
-        $f->columnWidth = 20;
-        $f->description = __('If checked, overwrite mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
-        $f->notes = __("This can be extremely destructive, use with extreme caution!!!");
-        $f->attr('checked', $data['disableContentProtection'] ? 'checked' : '' );
+        $f->attr('name', 'loadOpen');
+        $f->label = __('Load Open, not Collapsed');
+        $f->columnWidth = 50;
+        $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
+        $f->attr('checked', $data['loadOpen'] ? 'checked' : '' );
         $wrapper->add($f);
 
         return $wrapper;
