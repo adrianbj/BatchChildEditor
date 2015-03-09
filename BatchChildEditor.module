@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 33,
+            'version' => 34,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -200,8 +200,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $results = $this->modules->get('InputfieldMarkup');
             $results->attr('id', 'edit');
             $results->showIf = "edit_mode=edit";
-            $results->label = $this->_('Edit Existing Child Pages');
-            $results->description = $this->_('You can edit the page titles, sort, delete, or edit pages in a modal popup (via the page name link).');
+            $results->label = $this->_('Edit Child Pages');
+            $results->description = $this->_('You can edit the page titles, sort, delete, add new, or edit pages in a modal popup (via the page name link).');
             $table = $this->modules->get('MarkupAdminDataTable');
             $table->setSortable(true);
             $table->setEncodeEntities(false);
