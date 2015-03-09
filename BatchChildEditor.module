@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 32,
+            'version' => 33,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -208,8 +208,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             //Build the table
             $rowNum=1;
-            //Initial table row if no children already with blank name and delete button cells
-            if(count($pp->children)==0){
+            //if no children already, set up initial table row with blank name and delete button cells
+            if(count($pp->children("include=all"))==0){
                 $row = array(
                     "<i style='cursor:move' class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
                     "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
@@ -301,6 +301,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $np->save();
             }
         }
+        //Add mode
         elseif($this->input->post->edit_mode == "add"){
 
             foreach(explode("\r\n",$this->input->post->childTitlesAdd) as $childTitle){
@@ -314,7 +315,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $np->save();
             }
         }
-        //Edit Existing Mode
+        //Edit Mode
         else{
             //delete any pages marked for deletion
             if($this->input->post->idsToDelete!=''){
