@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 34,
+            'version' => 35,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -181,7 +181,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode=overwrite";
             $f->label = $this->_("Overwrite Child Pages");
             $f->description = $this->_("Editing this field will overwrite all the child page titles represented here.");
-            $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created." . ($this->data['disableContentProtection'] ? " It will also delete any other field content in these pages and delete all grandchildren." : ""));
+            $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created." . ($this->data['disableContentProtection'] ? " It will also delete any other field content in these pages and delete all grandchildren." : "") . "\n\nEach row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68");
             $f->attr('value', $this->childPages);
             $childEditSet->append($f);
         }
@@ -192,6 +192,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode=add";
             $f->label = $this->_("Add Child Pages");
             $f->description = $this->_("Editing this field will add all the child page titles listed here to the existing set of child pages.");
+            $f->notes = $this->_("Each row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68");
             $f->attr('value', '');
             $childEditSet->append($f);
         }
@@ -290,30 +291,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }
 
-            foreach(explode("\r\n",$this->input->post->childTitlesOverwrite) as $childTitle){
-                $childTitle = trim($this->sanitizer->text($childTitle));
-                if($childTitle=='') continue;
-                $np = new Page();
-                $np->parent = $pp;
-                $np->template = $childTemplate;
-                $np->title = $childTitle;
-                $np->of(false);
-                $np->save();
-            }
+            $this->createPages($this->input->post->childTitlesOverwrite, $pp, $childTemplate);
+
         }
         //Add mode
         elseif($this->input->post->edit_mode == "add"){
-
-            foreach(explode("\r\n",$this->input->post->childTitlesAdd) as $childTitle){
-                $childTitle = trim($this->sanitizer->text($childTitle));
-                if($childTitle=='') continue;
-                $np = new Page();
-                $np->parent = $pp;
-                $np->template = $childTemplate;
-                $np->title = $childTitle;
-                $np->of(false);
-                $np->save();
-            }
+            $this->createPages($this->input->post->childTitlesAdd, $pp, $childTemplate);
         }
         //Edit Mode
         else{
@@ -379,6 +362,36 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $cp->of(false);
                     $cp->save();
                 }
+            }
+        }
+    }
+
+
+    public function createPages($childPages, $pp, $childTemplate) {
+        foreach(explode("\r\n",$childPages) as $childPage) {
+            $i=0;
+            foreach(str_getcsv($childPage) as $childField) {
+                $childField = trim($this->sanitizer->text($childField));
+                //first item is the page title so create new page
+                if($i==0) {
+                    if($childField=='') continue;
+                    $np = new Page();
+                    $np->parent = $pp;
+                    $np->template = $childTemplate;
+                    $np->title = $childField;
+                    $np->of(false);
+                    $np->save();
+
+                    //populate numeric array of field names
+                    $fieldsArray = array();
+                    foreach($np->fields as $f) $fieldsArray[] = $f->name;
+                }
+                //populate new page with rest of the field values
+                else {
+                    $np->$fieldsArray[$i] = $childField;
+                    $np->save($fieldsArray[$i]);
+                }
+                $i++;
             }
         }
     }
