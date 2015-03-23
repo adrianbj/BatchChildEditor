@@ -9,7 +9,8 @@ This module adds a new section at the bottom of the Children Tab when editing a 
 2. Overwrite - Works similarly to Add, but overwrites all the existing children. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
 3. Edit - This allows you to rename existing child pages, add new child pages, sort, and delete pages. It is non-destructive and so could be used on child pages that have their own children or other content fields (not just title). It also has a modal edit link from the page name.
 
-In both Add and Overwrite modes you can enter CSV formatted rows to populate all text/numeric fields as the new pages are created, making for an extremely quick way of populating pages and their content.
+In both Add and Overwrite modes you can enter CSV formatted rows to populate all text/numeric fields as the new pages are created, making for an extremely quick way of creating new pages and populating their content fields.
+
 
 ###Access permission
 
