@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 35,
+            'version' => 36,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -51,6 +51,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "allowOverrideOverwriteNames" => "",
                 "loadOpen" => "",
                 "trashOrDelete" => "trash",
+                "position" => "bottom",
                 "disableContentProtection" => ""
             );
     }
@@ -245,7 +246,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->append($results);
         }
 
-        $form->add($childEditSet);
+        if($this->data['position'] == 'top') $form->prepend($childEditSet);
+        else $form->append($childEditSet);
     }
 
 
@@ -483,7 +485,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f = wire('modules')->get("InputfieldRadios");
         $f->attr('name', 'trashOrDelete');
         $f->label = __('Trash or Delete');
-        $f->columnWidth = 50;
+        $f->columnWidth = 33;
         $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
         $f->addOption("trash","Trash");
         $f->addOption("delete","Delete");
@@ -493,9 +495,19 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f = wire('modules')->get("InputfieldCheckbox");
         $f->attr('name', 'loadOpen');
         $f->label = __('Load Open, not Collapsed');
-        $f->columnWidth = 50;
+        $f->columnWidth = 34;
         $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
         $f->attr('checked', $data['loadOpen'] ? 'checked' : '' );
+        $wrapper->add($f);
+
+        $f = wire('modules')->get("InputfieldRadios");
+        $f->attr('name', 'position');
+        $f->label = __('Position');
+        $f->columnWidth = 33;
+        $f->description = __('Do you want the Batch Child Editor tool at the top, bottom of the Children tab?');
+        $f->addOption("top","Top");
+        $f->addOption("bottom","Bottom");
+        $f->value = $data['position'];
         $wrapper->add($f);
 
         return $wrapper;
