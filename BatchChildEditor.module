@@ -119,7 +119,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
-        $childEditSet->label = __('Child Batch Editor');
+        $childEditSet->label = __('Batch Editor / Creator');
         if(!$this->data['loadOpen']) $childEditSet->collapsed = Inputfield::collapsedYes;
 
         if(count($this->data['editModes'])>1){
@@ -504,7 +504,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'position');
         $f->label = __('Position');
         $f->columnWidth = 33;
-        $f->description = __('Do you want the Batch Child Editor tool at the top, bottom of the Children tab?');
+        $f->description = __('Position the Batch Child Editor tool at the top or bottom of the Children tab?');
         $f->addOption("top","Top");
         $f->addOption("bottom","Bottom");
         $f->value = $data['position'];
