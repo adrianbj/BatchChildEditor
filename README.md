@@ -29,6 +29,12 @@ Whether users can decide whether the name is also changed or not.
 
 Whether to disable content protection for existing child pages and their children.
 
+Trash or Delete.
+
+Load Batch interface Open or Collapsed (open for quicker access).
+
+Position interface at top or bottom of Children tab (top for quicker access).
+
 
 ## License
 
