@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 36,
+            'version' => 47,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -46,13 +46,30 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             return array(
                 "enabledTemplates" => array(),
                 "enabledPages" => array(),
+                "configurablePages" => array(),
                 "editModes" => "edit",
                 "overwriteNames" => "",
                 "allowOverrideOverwriteNames" => "",
                 "loadOpen" => "",
+                "csvOptions" => "",
+                "fieldSeparator" => ",",
+                "fieldEnclosure" => '"',
+                "ignoreFirstRow" => 0,
+                "fieldPairings" => "",
                 "trashOrDelete" => "trash",
                 "position" => "bottom",
-                "disableContentProtection" => ""
+                "tabName" => "Batch Child Editor",
+                "disableContentProtection" => "",
+                "editModeTitle" => "Edit Child Pages",
+                "editModeDescription" => "You can edit the page titles, sort, delete, add new, or edit pages in a modal popup (via the page name link).",
+                "editModeNotes" => "",
+                "addModeTitle" => "Add Child Pages",
+                "addModeDescription" => "Editing this field will add all the child page titles listed here to the existing set of child pages.",
+                "addModeNotes" => "Each row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68",
+                "overwriteModeTitle" => "Overwrite Child Pages",
+                "overwriteModeDescription" => "Editing this field will overwrite all the child page titles represented here.",
+                "overwriteModeNotes" => "WARNING: If you use this option, all the existing child pages (and grandchildren) will be deleted and new ones created.\n\nEach row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68",
+                "pageSettings" => array(),
             );
     }
 
@@ -87,6 +104,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $id = (int)$this->input->get->id;
         if(!$id) return;
 
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = isset($this->data['pageSettings'][$id]) && $this->data['pageSettings'][$id] ? $this->data['pageSettings'][$id] : $this->data;
+
         // GET parameter id tells the page that's being edited
         $this->editedPage = wire('pages')->get($id);
 
@@ -99,10 +119,111 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if(count($this->data['enabledPages']) !== 0 && !in_array($this->editedPage->id, $this->data['enabledPages'])) return;
 
         //Make sure at least one edit mode has been selected in the config
-        if(count($this->data['editModes']) == 0) return;
+        if(count($currentData['editModes']) == 0) return;
 
-        $this->addHookAfter('ProcessPageEdit::buildFormChildren', $this, 'addChildEditFieldset');
+        //if position is "new tab" we also need to check that the template family settings allow the page to have children
+        if($currentData['position'] == 'newTab' && !$this->editedPage->template->noChildren) {
+            $this->addHookAfter('ProcessPageEdit::buildForm', $this, 'addNewTab');
+        }
+        else {
+            $this->addHookAfter('ProcessPageEdit::buildFormChildren', $this, 'addChildEditFieldset');
+        }
         $this->addHookAfter('ProcessPageEdit::processInput', $this, 'saveChildren');
+
+        // page specific config settings
+        if($this->user->isSuperuser() && count($this->data['configurablePages']) !== 0 && in_array($this->editedPage->id, $this->data['configurablePages'])) {
+            $this->addHookAfter('ProcessPageEdit::buildFormSettings', $this, 'buildPageConfigForm');
+            $this->addHookAfter('ProcessPageEdit::processInput', $this, 'processPageConfigForm');
+        }
+
+    }
+
+
+
+    public function buildPageConfigForm(HookEvent $event){
+
+        $pp = $event->object->getPage();
+
+        $inputfields = $event->return;
+
+        $fieldset = $this->modules->get("InputfieldFieldset");
+        $fieldset->attr('id', 'batch_child_editor_config_fieldset');
+        $fieldset->label = __("Batch Child Editor Settings");
+        if(!isset($this->data['pageSettings'][$pp->id])) $fieldset->collapsed = Inputfield::collapsedYes;
+
+        $f = wire('modules')->get("InputfieldMarkup");
+        $f->attr('name', 'config_intro');
+        $f->label = "";
+        $f->value = "<p>These settings will override those in the main config settings for this page.</p>";
+        $fieldset->append($f);
+
+        buildCoreSettings($this->data, $fieldset, $pp->id);
+
+        $inputfields->append($fieldset);
+
+
+        // check integrity of field pairings list
+        if(isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id]) {
+            if($this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
+                $convertedFieldPairings = $this->convertFieldPairings($this->data['pageSettings'][$pp->id]['fieldPairings']);
+                // if field pairings are set, make sure a title field is defined
+                // maybe we want to make this optional at some point in case template doesn't actually have/require a title field
+                if(!in_array('title', $convertedFieldPairings)) {
+                    $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings"));
+                }
+
+                // make sure all the fields exist in the templates that are possible for child pages
+                $possibleTemplates = array();
+                if(count($pp->template->childTemplates)==0){
+                    foreach($this->templates as $t) {
+                        if(!($t->flags & Template::flagSystem)) $possibleTemplates[] = $t->name;
+                    }
+                }
+                else{
+                    foreach($pp->template->childTemplates as $t) {
+                        $possibleTemplates[] = $this->templates->get($t)->name;
+                    }
+                }
+                $missingFields = array();
+                foreach($possibleTemplates as $t) {
+                    foreach($convertedFieldPairings as $f) {
+                        if(!$this->templates->get($t)->hasField($f)) $missingFields[] = $f;
+                    }
+                }
+                if(!empty($missingFields)) $this->error($this->_("The following fields defined in \"Field Pairings\" are not available in any of the allowed templates for child pages: " . implode(', ', $missingFields)));
+            }
+        }
+    }
+
+
+
+    public function processPageConfigForm(HookEvent $event){
+
+        // ProcessPageEdit's processInput function may go recursive, so we want to skip
+        // the instances where it does that by checking the second argument named "level"
+        $level = $event->arguments(1);
+        if($level > 0) return;
+
+        $p = $event->object->getPage();
+
+        $options = array("pid" => $p->id);
+        foreach(self::getDefaultData() as $key => $value) {
+            $options[$key] = $this->input->post->$key;
+        }
+
+        $this->saveSettings($options);
+    }
+
+
+    public function saveSettings($options) {
+        $pid = $options['pid'];
+        unset($this->data['pageSettings'][$pid]); // remove existing record for this page - need a clear slate for adding new settings or if it was just disabled
+        foreach($options as $key => $value) {
+            $this->data['pageSettings'][$pid][$key] = $value;
+        }
+
+        // save to config data with the rest of the settings
+        $this->modules->saveModuleConfigData($this->modules->get("BatchChildEditor"), $this->data);
     }
 
 
@@ -110,6 +231,46 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $pp = $event->object->getPage();
         $form = $event->return;
+
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        $childEditSet = $this->createChildEditSet($pp, $form);
+
+        if($currentData['position'] == 'top') $form->prepend($childEditSet);
+        elseif ($currentData['position'] == 'replace') {
+            foreach($form as $field) {
+                if($field->label == 'Children / Subpages') $form->remove($field);
+            }
+            $form->prepend($childEditSet);
+        }
+        else $form->append($childEditSet); // bottom
+    }
+
+
+    public function addNewTab(HookEvent $event){
+
+        $pp = $event->object->getPage();
+        $form = $event->return;
+
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        $childEditSet = $this->createChildEditSet($pp, $form);
+
+        // create the tab
+        $newTab = new InputfieldWrapper();
+        $newTab->attr('id', $this->className() . $this->sanitizer->pageName($currentData['tabName'],true));
+        $newTab->attr('title', $currentData['tabName']);
+        $newTab->prepend($childEditSet);
+        $form->prepend($newTab); // this prepend is putting the childeditset before the save button, although I really want to change the order of the tab itself to just after Content
+    }
+
+
+    public function createChildEditSet($pp, $form) {
+
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
         foreach($pp->children("include=all") as $cp) {
             if(!$cp->is(Page::statusSystemID)) $this->childPages .= "{$cp->title}\r\n";
@@ -119,17 +280,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
-        $childEditSet->label = __('Batch Editor / Creator');
-        if(!$this->data['loadOpen']) $childEditSet->collapsed = Inputfield::collapsedYes;
+        $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $childEditSet->label = __('Batch Editor / Creator');
 
-        if(count($this->data['editModes'])>1){
+
+        if(count($currentData['editModes'])>1){
             $f = $this->modules->get("InputfieldRadios");
             $f->attr('name', 'edit_mode');
             $f->label = __('Edit, Add, or Overwrite');
             $f->optionColumns = 1;
             $f->columnWidth = 33;
             $f->description = __('Whether to edit, add to, or overwrite the entire list of child pages. Choose an option to read more about how it works.');
-            foreach($this->data['editModes'] as $editMode){
+            foreach($currentData['editModes'] as $editMode){
                 $f->addOption($editMode, ucfirst($editMode));
             }
             $childEditSet->add($f);
@@ -137,7 +298,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         else{
             $f = $this->modules->get("InputfieldHidden");
             $f->attr('name', 'edit_mode');
-            $f->value = $this->data['editModes'][0];
+            $f->value = $currentData['editModes'][0];
             $childEditSet->add($f);
         }
 
@@ -164,46 +325,110 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->add($f);
         }
 
-        if($this->data['allowOverrideOverwriteNames']){
+        if($currentData['allowOverrideOverwriteNames']){
             $f = wire('modules')->get("InputfieldCheckbox");
             $f->attr('name', 'userOverwriteNames');
             $f->showIf = "edit_mode=edit";
             $f->label = __('Overwrite names');
             $f->columnWidth = 33;
             $f->description = __('Whether to overwrite the name of the page, and not just the title.');
-            $f->attr('checked', $this->data['overwriteNames'] ? 'checked' : '' );
+            $f->attr('checked', $currentData['overwriteNames'] ? 'checked' : '' );
             $f->notes = __("This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
             $childEditSet->add($f);
         }
 
-        if(in_array('overwrite', $this->data['editModes'])) {
-            $f = $this->modules->get("InputfieldTextarea");
-            $f->name = "childTitlesOverwrite";
-            $f->showIf = "edit_mode=overwrite";
-            $f->label = $this->_("Overwrite Child Pages");
-            $f->description = $this->_("Editing this field will overwrite all the child page titles represented here.");
-            $f->notes = $this->_("WARNING: If you use this option, all the existing pages will be deleted and new ones created." . ($this->data['disableContentProtection'] ? " It will also delete any other field content in these pages and delete all grandchildren." : "") . "\n\nEach row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68");
-            $f->attr('value', $this->childPages);
-            $childEditSet->append($f);
+        // Overwrite
+        if(in_array('overwrite', $currentData['editModes'])) {
+
+            if($currentData['csvOptions']) {
+                $csvFieldset = $this->modules->get("InputfieldFieldset");
+                $csvFieldset->label = $currentData['overwriteModeTitle'];
+                $csvFieldset->description = $currentData['overwriteModeDescription'];
+                $csvFieldset->notes = $currentData['overwriteModeNotes'];
+                $csvFieldset->showIf = "edit_mode=overwrite";
+                $childEditSet->add($csvFieldset);
+            }
+
+            if(in_array('paste', $currentData['csvOptions'])) {
+                $f = $this->modules->get("InputfieldTextarea");
+                $f->name = "childPagesOverwrite";
+                $f->showIf = "edit_mode=overwrite";
+                $f->label = __("Paste CSV");
+                $f->attr('value', $this->childPages);
+                $csvFieldset->append($f);
+            }
+
+            if(in_array('link', $currentData['csvOptions'])) {
+                $f = $this->modules->get("InputfieldURL");
+                $f->name = "csvUrlOverwrite";
+                $f->showIf = "edit_mode=overwrite";
+                $f->label = __("Enter URL to CSV file");
+                $f->placeholder = __("URL to CSV file");
+                $f->attr('value', '');
+                $csvFieldset->append($f);
+            }
+
+            if(in_array('upload', $currentData['csvOptions'])) {
+                $f = $this->modules->get("InputfieldMarkup");
+                $f->label = __("Upload CSV file");
+                $f->name = 'csvUploadOverwrite';
+                $f->showIf = "edit_mode=overwrite";
+                $f->value = "<input name='csvOverwriteFile' type='file' />";
+                $csvFieldset->add($f);
+            }
+
         }
 
-        if(in_array('add', $this->data['editModes'])) {
-            $f = $this->modules->get("InputfieldTextarea");
-            $f->name = "childTitlesAdd";
-            $f->showIf = "edit_mode=add";
-            $f->label = $this->_("Add Child Pages");
-            $f->description = $this->_("Editing this field will add all the child page titles listed here to the existing set of child pages.");
-            $f->notes = $this->_("Each row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68");
-            $f->attr('value', '');
-            $childEditSet->append($f);
+        // Add
+        if(in_array('add', $currentData['editModes'])) {
+
+            if($currentData['csvOptions']) {
+                $csvFieldset = $this->modules->get("InputfieldFieldset");
+                $csvFieldset->label = $currentData['addModeTitle'];
+                $csvFieldset->description = $currentData['addModeDescription'];
+                $csvFieldset->notes = $currentData['addModeNotes'];
+                $csvFieldset->showIf = "edit_mode=add";
+                $childEditSet->add($csvFieldset);
+            }
+
+            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions'])) {
+                $f = $this->modules->get("InputfieldTextarea");
+                $f->name = "childPagesAdd";
+                $f->showIf = "edit_mode=add";
+                $f->label = __("Paste CSV");
+                $f->attr('value', '');
+                $csvFieldset->append($f);
+            }
+
+            if(is_array($currentData['csvOptions']) && in_array('link', $currentData['csvOptions'])) {
+                $f = $this->modules->get("InputfieldURL");
+                $f->name = "csvUrlAdd";
+                $f->showIf = "edit_mode=add";
+                $f->label = __("Enter URL to CSV file");
+                $f->placeholder = __("URL to CSV file");
+                $f->attr('value', '');
+                $csvFieldset->append($f);
+            }
+
+            if(is_array($currentData['csvOptions']) && in_array('upload', $currentData['csvOptions'])) {
+                $f = $this->modules->get("InputfieldMarkup");
+                $f->label = __("Upload CSV file");
+                $f->name = 'csvUploadAdd';
+                $f->showIf = "edit_mode=add";
+                $f->value = "<input name='csvAddFile' type='file' />";
+                $csvFieldset->add($f);
+            }
+
         }
 
-        if(in_array('edit', $this->data['editModes'])) {
+        // Edit
+        if(in_array('edit', $currentData['editModes'])) {
             $results = $this->modules->get('InputfieldMarkup');
             $results->attr('id', 'edit');
             $results->showIf = "edit_mode=edit";
-            $results->label = $this->_('Edit Child Pages');
-            $results->description = $this->_('You can edit the page titles, sort, delete, add new, or edit pages in a modal popup (via the page name link).');
+            $results->label = $currentData['editModeTitle'];
+            $results->description = $currentData['editModeDescription'];
+            $results->notes = $currentData['editModeNotes'];
             $table = $this->modules->get('MarkupAdminDataTable');
             $table->setSortable(true);
             $table->setEncodeEntities(false);
@@ -245,9 +470,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . $button->render());
             $childEditSet->append($results);
         }
-
-        if($this->data['position'] == 'top') $form->prepend($childEditSet);
-        else $form->append($childEditSet);
+        return $childEditSet;
     }
 
 
@@ -263,16 +486,28 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $pp = $event->object->getPage();
 
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
         //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
         $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
 
         //Overwrite Mode
         if($this->input->post->edit_mode == "overwrite"){
 
-            // if overwrite textarea content hasn't changed, escape now to prevent unwanted deletion and recreation of pages
-            if($this->input->post->childTitlesOverwrite == $this->childPages) return;
+            $childPagesOverwrite = $this->processTextOrFile($this->input->post->childPagesOverwrite, $this->input->post->csvUrlOverwrite,'csvOverwriteFile');
 
-            if(!$this->data['disableContentProtection']){
+            //if theURL or CSV versions are empty, escape now to prevent unwanted deletion and recreation of pages
+            //note that an empty textarea/paste option is valid - it provides a way to batch delete all child pages
+            if($childPagesOverwrite == 'BCE-FILE-EMPTY') {
+                $this->error($this->_("The CSV file was empty, so no pages can be created."));
+                return;
+            }
+            //if content (textarea, URL or CSV upload) hasn't changed, escape now to prevent unwanted deletion and recreation of pages
+            if($childPagesOverwrite == $this->childPages) return;
+
+
+            if(!$currentData['disableContentProtection']){
                 foreach($pp->children("include=all") as $cp){
                     if($cp->numChildren>0){
                         $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first."));
@@ -286,19 +521,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     }
                 }
             }
-
-            foreach($pp->children("include=all") as $cp) {
-                if(!$cp->is(Page::statusSystemID)) {
-                    $this->data['trashOrDelete'] == 'delete' ? $this->pages->delete($cp, true) : $this->pages->trash($cp);
-                }
-            }
-
-            $this->createPages($this->input->post->childTitlesOverwrite, $pp, $childTemplate);
-
+            $this->createPages($childPagesOverwrite, $pp, $childTemplate);
         }
         //Add mode
         elseif($this->input->post->edit_mode == "add"){
-            $this->createPages($this->input->post->childTitlesAdd, $pp, $childTemplate);
+            $childPagesAdd = $this->processTextOrFile($this->input->post->childPagesAdd, $this->input->post->csvUrlAdd, 'csvAddFile');
+            $this->createPages($childPagesAdd, $pp, $childTemplate);
         }
         //Edit Mode
         else{
@@ -308,7 +536,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 foreach($idsToDelete as $id){
                     $ptod = $this->pages->get($id);
 
-                    if(!$this->data['disableContentProtection']){
+                    if(!$currentData['disableContentProtection']){
                         if($ptod->numChildren>0){
                             $this->error($this->_("You cannot delete this child page, because it has a child page of its own. You can prevent this check by disabling Content Protection in the module config settings."));
                             return;
@@ -322,14 +550,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     }
 
                     if($id!='') {
-                        $this->data['trashOrDelete'] == 'delete' ? $this->pages->delete($ptod, true) : $this->pages->trash($ptod);
+                        $currentData['trashOrDelete'] == 'delete' ? $this->pages->delete($ptod, true) : $this->pages->trash($ptod);
                     }
                 }
             }
 
             $i=0;
             foreach($this->input->post->individualChildTitles as $id => $childTitle){
-                if(in_array($id, $idsToDelete)) continue; //ignore pages that have just been deleted
+                if(isset($idsToDelete) && in_array($id, $idsToDelete)) continue; //ignore pages that have just been deleted
                 $childTitle = trim($this->sanitizer->text($childTitle));
                 $i++;
                 if($childTitle == '') continue; // in case someone clicked add Page, but left it blank
@@ -343,7 +571,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     //if($i==1 && !$this->input->post->childTemplate) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
                 }
                 $cp->title = $childTitle;
-                if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$this->data['allowOverrideOverwriteNames'] && $this->data['overwriteNames'])){
+                if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
                     $n = 0;
                     $pageName = $this->sanitizer->pageName($childTitle, Sanitizer::translate);
                     if($cp->isNew()){
@@ -369,29 +597,128 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     }
 
 
-    public function createPages($childPages, $pp, $childTemplate) {
-        foreach(explode("\r\n",$childPages) as $childPage) {
-            $i=0;
-            foreach(str_getcsv($childPage) as $childField) {
-                $childField = trim($this->sanitizer->text($childField));
-                //first item is the page title so create new page
-                if($i==0) {
-                    if($childField=='') continue;
-                    $np = new Page();
-                    $np->parent = $pp;
-                    $np->template = $childTemplate;
-                    $np->title = $childField;
-                    $np->of(false);
-                    $np->save();
 
-                    //populate numeric array of field names
-                    $fieldsArray = array();
-                    foreach($np->fields as $f) $fieldsArray[] = $f->name;
+    public function processTextOrFile ($str, $link, $fileInputName) {
+
+        //CSV file upload
+        if(isset($_FILES[$fileInputName]['name']) && $_FILES[$fileInputName]['name'] !== ''){
+
+            $csv_file_extension = pathinfo($_FILES[$fileInputName]["name"], PATHINFO_EXTENSION);
+
+            if($csv_file_extension == 'csv' || $csv_file_extension == 'txt' || $csv_file_extension == 'tsv'){
+                $childPagesContent = file_get_contents($_FILES[$fileInputName]["tmp_name"]);
+                if($childPagesContent == '') return 'BCE-FILE-EMPTY';
+            }
+            else{
+                $this->error($this->_("That is not an allowed file extension for a CSV import. Try again with a .csv, .tsv, or .txt file"));
+            }
+
+            unlink($_FILES[$fileInputName]["tmp_name"]);
+        }
+        elseif($link != '') {
+            $childPagesContent = file_get_contents($link);
+            if($childPagesContent == '') return 'BCE-FILE-EMPTY';
+        }
+        elseif($str != '') $childPagesContent = $str;
+        else return;
+
+        return mb_check_encoding($childPagesContent, 'UTF-8') ? $childPagesContent : utf8_encode($childPagesContent);
+    }
+
+
+
+    public function createPages($childPages, $pp, $childTemplate) {
+
+        $childPages = trim(preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $childPages),"\n"); // remove any blank lines
+        $childPages = str_replace("\r\n","\n", $childPages); //fix for Windows line endings
+        $childPages = str_replace("\r","\n", $childPages); //fix for Mac Excel line ending issue - http://nicercode.github.io/blog/2013-04-30-excel-and-line-endings/
+
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        //if defined, get field pairings
+        if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
+            $convertedFieldPairings = $this->convertFieldPairings($currentData['fieldPairings']);
+        }
+
+        $x=0;
+        foreach(explode("\n",$childPages) as $childPage) {
+            $i=0;
+            $x++;
+            if($x==1 && $currentData['ignoreFirstRow']) continue; //ignore first row which contains column names
+
+            $row = str_getcsv($childPage, $currentData['fieldSeparator'] == "tab" ? chr(9) : $currentData['fieldSeparator'], $currentData['fieldEnclosure']);
+
+            //if fields pairings are not defined, then make sure the field count matches the number of fields in the selected child template
+            if(!isset($this->data['pageSettings'][$pp->id]['fieldPairings']) || $this->data['pageSettings'][$pp->id]['fieldPairings'] == '') {
+                //only if greater than one, because one column in each row is just for setting the title/name
+                if(count($row) > 1 && count($row) != count($this->templates->get($childTemplate)->fields)) {
+                    $this->error($this->_("The number of columns/fields in your CSV do not match the number of fields in the template. Nothing can be safely imported. If you need to exclude certain fields, make sure the CSV has blank values for the excluded fields."));
+                    return;
                 }
-                //populate new page with rest of the field values
+            }
+            //if field pairings are defined, check that the field/column count in the CSV is at least as many as the number of defined pairings
+            //if field pairings are defined then we don't allow titles only, hence no check for count($row) > 1
+            else {
+                if(count($row) < count($convertedFieldPairings)) {
+                    $this->error($this->_("The number of columns/fields in your CSV is not enough for number of fields defined for this import. Nothing can be safely imported."));
+                    return;
+                }
+            }
+
+            //if first loop and overwrite mode then now it's safe to delete all existing child pages because above checks for field pairings have passed
+            if($x==1 && $this->input->post->edit_mode == "overwrite") {
+                foreach($pp->children("include=all") as $cp) {
+                    if(!$cp->is(Page::statusSystemID)) {
+                        $currentData['trashOrDelete'] == 'delete' ? $this->pages->delete($cp, true) : $this->pages->trash($cp);
+                    }
+                }
+            }
+
+            //create new child pages
+            foreach($row as $childField) {
+                $childField = trim($this->sanitizer->text($childField));
+                //if fieldPairings is defined
+                if($currentData['fieldPairings'] != '') {
+                    if($i==0) {
+                        $titleKey = array_search('title', $convertedFieldPairings);
+                        if($row[$titleKey-1] == '') continue;
+                        $np = new Page();
+                        $np->parent = $pp;
+                        $np->template = $childTemplate;
+                        $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
+                        $np->of(false);
+                        $np->save();
+                    }
+                    //populate new page with rest of the field values
+                    else {
+                        if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
+                            $np->$convertedFieldPairings[$i+1] = $childField;
+                            $np->save($convertedFieldPairings[$i+1]);
+                        }
+                    }
+                }
+                // else all fields matched in order
                 else {
-                    $np->$fieldsArray[$i] = $childField;
-                    $np->save($fieldsArray[$i]);
+                    //first item is the page title so create new page
+                    if($i==0) {
+                        if($childField == '') continue;
+                        $np = new Page();
+                        $np->parent = $pp;
+                        $np->template = $childTemplate;
+                        $np->title = $childField;
+                        $np->of(false);
+                        $np->save();
+
+                        //populate numeric array of field names
+                        $fieldsArray = array();
+                        foreach($np->fields as $f) $fieldsArray[] = $f->name;
+                    }
+                    //populate new page with rest of the field values
+                    else {
+                        $np->$fieldsArray[$i] = $childField;
+                        $np->save($fieldsArray[$i]);
+                    }
                 }
                 $i++;
             }
@@ -410,12 +737,27 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $data = array_merge(self::getDefaultData(), $data);
 
+
+        /*if($data['protectSite'] && (!isset($data['protectedPages'][1]) || $data['protectedPages'][1]['children'] == null)) {
+            unset($data['protectedPages'][1]); // remove existing record for this page - need a clear slate for adding new settings or if it was just disabled
+            $data['protectedPages'][1]['children'] = 1;
+            $data['protectedPages'][1]['message_override'] = $data['message'];
+            $data['protectedPages'][1]['roles'] = null;
+            if($data['login_template'] != '') $data['protectedPages'][1]['prohibited_message'] = $data['prohibited_message'];
+        }
+
+        unset($data['protectSite']);
+
+        // save to config data with the rest of the settings
+        wire('modules')->saveModuleConfigData(wire('modules')->get("BatchChildEditor"), $data);*/
+
+
         $wrapper = new InputFieldWrapper();
 
         $fieldEnabledTemplates = wire('modules')->get('InputfieldAsmSelect');
         $fieldEnabledTemplates->attr('name+id', 'enabledTemplates');
         $fieldEnabledTemplates->label = __('Enabled templates', __FILE__);
-        $fieldEnabledTemplates->columnWidth = 50;
+        $fieldEnabledTemplates->columnWidth = 33;
         $fieldEnabledTemplates->description = __("The batch editing option will only be available for the selected templates.\nNB Leave blank to allow all templates.", __FILE__);
         $fieldEnabledTemplates->setAsmSelectOption('sortable', false);
 
@@ -431,86 +773,37 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledPages = wire('modules')->get('InputfieldPageListSelectMultiple');
         $fieldEnabledPages->attr('name+id', 'enabledPages');
         $fieldEnabledPages->label = __('Enabled pages', __FILE__);
-        $fieldEnabledPages->columnWidth = 50;
+        $fieldEnabledPages->columnWidth = 34;
         $fieldEnabledPages->description = __("The batch editing option will only be available for the selected pages.\nNB Leave blank to allow all pages.", __FILE__);
         $fieldEnabledPages->attr('title', __('Enable page', __FILE__));
         if(isset($data['enabledPages'])) $fieldEnabledPages->value = $data['enabledPages'];
         $wrapper->add($fieldEnabledPages);
 
+        $fieldConfigurablePages = wire('modules')->get('InputfieldPageListSelectMultiple');
+        $fieldConfigurablePages->attr('name+id', 'configurablePages');
+        $fieldConfigurablePages->label = __('Configurable pages', __FILE__);
+        $fieldConfigurablePages->columnWidth = 33;
+        $fieldConfigurablePages->description = __("Selected pages will have their own config settings for Batch Child Editor - these will be added to the page's Settings tab. All other pages will use the config settings below.", __FILE__);
+        $fieldConfigurablePages->attr('title', __('Enable page', __FILE__));
+        if(isset($data['configurablePages'])) $fieldConfigurablePages->value = $data['configurablePages'];
+        $wrapper->add($fieldConfigurablePages);
 
-        $f = wire('modules')->get("InputfieldCheckboxes");
-        $f->attr('name', 'editModes');
-        $f->label = __('Edit Modes');
-        $f->required = true;
-        $f->columnWidth = 25;
-        $f->description = __('Which edit modes you want available. If both, then the user can decide.');
-        $f->addOption("edit","Edit");
-        $f->addOption("add","Add");
-        $f->addOption("overwrite","Overwrite");
-        $f->value = $data['editModes'];
-        $f->notes = __("The Edit and Add modes are safer than the Overwrite mode, because they are non-destructive.");
-        $wrapper->add($f);
-
-
-        $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'overwriteNames');
-        $f->label = __('Overwrite names');
-        $f->showIf = "editModes=edit";
-        $f->columnWidth = 25;
-        $f->description = __('Whether to overwrite the name of the page, and not just the title.');
-        $f->attr('checked', $data['overwriteNames'] ? 'checked' : '' );
-        $f->notes = __("Only relevant for Edit mode. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
-        $wrapper->add($f);
-
-        $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'allowOverrideOverwriteNames');
-        $f->label = __('Allow user to change "Overwrite Names" setting');
-        $f->showIf = "editModes=edit";
-        $f->columnWidth = 25;
-        $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
-        $f->attr('checked', $data['allowOverrideOverwriteNames'] ? 'checked' : '' );
-        $f->notes = __("Only relevant for Edit mode.");
-        $wrapper->add($f);
-
-        $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'disableContentProtection');
-        $f->label = __('Disable Content Protection');
-        $f->showIf = "editModes=overwrite";
-        $f->columnWidth = 25;
-        $f->description = __('If checked, overwrite mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
-        $f->notes = __("This can be extremely destructive, use with extreme caution!!!");
-        $f->attr('checked', $data['disableContentProtection'] ? 'checked' : '' );
-        $wrapper->add($f);
-
-        $f = wire('modules')->get("InputfieldRadios");
-        $f->attr('name', 'trashOrDelete');
-        $f->label = __('Trash or Delete');
-        $f->columnWidth = 33;
-        $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
-        $f->addOption("trash","Trash");
-        $f->addOption("delete","Delete");
-        $f->value = $data['trashOrDelete'];
-        $wrapper->add($f);
-
-        $f = wire('modules')->get("InputfieldCheckbox");
-        $f->attr('name', 'loadOpen');
-        $f->label = __('Load Open, not Collapsed');
-        $f->columnWidth = 34;
-        $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
-        $f->attr('checked', $data['loadOpen'] ? 'checked' : '' );
-        $wrapper->add($f);
-
-        $f = wire('modules')->get("InputfieldRadios");
-        $f->attr('name', 'position');
-        $f->label = __('Position');
-        $f->columnWidth = 33;
-        $f->description = __('Position the Batch Child Editor tool at the top or bottom of the Children tab?');
-        $f->addOption("top","Top");
-        $f->addOption("bottom","Bottom");
-        $f->value = $data['position'];
-        $wrapper->add($f);
+        buildCoreSettings($data, $wrapper);
 
         return $wrapper;
+    }
+
+
+    public function convertFieldPairings ($fieldPairings) {
+        //convert to array of column numbers and PW field names
+        $temp = explode("\r\n", $fieldPairings);
+        $convertedFieldPairings = array();
+        foreach ($temp as $value) {
+            $array = explode(':', str_replace(' ', '', $value));
+            $array[1] = trim($array[1], '"');
+            $convertedFieldPairings[$array[0]] = $array[1];
+        }
+        return $convertedFieldPairings;
     }
 
 
@@ -551,4 +844,227 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
     }
 
+}
+
+
+function buildCoreSettings ($data, $wrapper, $pid = null) {
+    $f = wire('modules')->get("InputfieldCheckboxes");
+    $f->attr('name', 'editModes');
+    $f->label = __('Edit Modes');
+    $f->required = true;
+    $f->columnWidth = 25;
+    $f->description = __('Which edit modes you want available. If both, then the user can decide.');
+    $f->addOption("edit","Edit");
+    $f->addOption("add","Add");
+    $f->addOption("overwrite","Overwrite");
+    $f->value = $pid && isset($data['pageSettings'][$pid]['editModes']) ? $data['pageSettings'][$pid]['editModes'] : $data['editModes'];
+    $f->notes = __("The Edit and Add modes are safer than the Overwrite mode, because they are non-destructive.");
+    $wrapper->add($f);
+
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'overwriteNames');
+    $f->label = __('Overwrite names');
+    $f->showIf = "editModes=edit";
+    $f->columnWidth = 25;
+    $f->description = __('Whether to overwrite the name of the page, and not just the title.');
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['overwriteNames']) ? $data['pageSettings'][$pid]['overwriteNames'] : $data['overwriteNames']) ? 'checked' : '' );
+    $f->notes = __("Only relevant for Edit mode. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'allowOverrideOverwriteNames');
+    $f->label = __('Allow user to change "Overwrite Names" setting');
+    $f->showIf = "editModes=edit";
+    $f->columnWidth = 25;
+    $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['allowOverrideOverwriteNames']) ? $data['pageSettings'][$pid]['allowOverrideOverwriteNames'] : $data['allowOverrideOverwriteNames']) ? 'checked' : '' );
+    $f->notes = __("Only relevant for Edit mode.");
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'disableContentProtection');
+    $f->label = __('Disable Content Protection');
+    $f->showIf = "editModes=overwrite|edit";
+    $f->columnWidth = 25;
+    $f->description = __('If checked, overwrite mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
+    $f->notes = __("This can be extremely destructive, use with extreme caution!!!");
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['disableContentProtection']) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckboxes");
+    $f->attr('name', 'csvOptions');
+    $f->label = __('Page Titles / CSV Options');
+    $f->showIf = "editModes=overwrite|add";
+    $f->required = true;
+    $f->requiredIf = "editModes=overwrite|add";
+    $f->columnWidth = 40;
+    $f->description = __('Which page entry options do you want available.');
+    $f->notes = __("For creating page title/names only, then Text/Paste is likely the most relevant option. CSV options to the right only relevant if populating other page fields in addition to the title/name.");
+    $f->addOption("paste","Text/Paste");
+    $f->addOption("link","Link (URL)");
+    $f->addOption("upload","Upload");
+    $f->value = $pid && isset($data['pageSettings'][$pid]['csvOptions']) ? $data['pageSettings'][$pid]['csvOptions'] : $data['csvOptions'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'fieldSeparator';
+    $f->label = __('CSV Fields separated with');
+    $f->showIf = "editModes=overwrite|add";
+    $f->notes = __('For tab separated, enter: tab');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['fieldSeparator']) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
+    $f->columnWidth = 20;
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'fieldEnclosure';
+    $f->label = __('CSV Field enclosure');
+    $f->showIf = "editModes=overwrite|add";
+    $f->value = $pid && isset($data['pageSettings'][$pid]['fieldEnclosure']) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
+    $f->columnWidth = 20;
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->name = 'ignoreFirstRow';
+    $f->label = __('CSV Ignore the first row');
+    $f->showIf = "editModes=overwrite|add";
+    $f->notes = __('Use this if the first row is field names');
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['ignoreFirstRow']) ? $data['pageSettings'][$pid]['ignoreFirstRow'] : $data['ignoreFirstRow']) ? 'checked' : '' );
+    $f->columnWidth = 20;
+    $wrapper->add($f);
+
+    //only for page context settings
+    if(wire('input')->get->id) {
+        $f = wire('modules')->get("InputfieldTextarea");
+        $f->name = 'fieldPairings';
+        $f->label = __('CSV Field Pairings');
+        $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
+        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB You must include at least the title field, but all other fields are optional.");
+        $f->showIf = "editModes=overwrite|add";
+        $f->value = isset($data['pageSettings'][$pid]['fieldPairings']) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
+        $wrapper->add($f);
+    }
+
+    $f = wire('modules')->get("InputfieldRadios");
+    $f->attr('name', 'trashOrDelete');
+    $f->label = __('Trash or Delete');
+    $f->columnWidth = 25;
+    $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
+    $f->addOption("trash","Trash");
+    $f->addOption("delete","Delete");
+    $f->value = $pid && isset($data['pageSettings'][$pid]['trashOrDelete']) ? $data['pageSettings'][$pid]['trashOrDelete'] : $data['trashOrDelete'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldRadios");
+    $f->attr('name', 'position');
+    $f->label = __('Position');
+    $f->columnWidth = 25;
+    $f->description = __('Where to position the Batch Child Editor tool. Replace will remove the existing page tree. New Tab will put this editor in a new tab.');
+    $f->addOption("top","Top");
+    $f->addOption("bottom","Bottom");
+    $f->addOption("replace","Replace");
+    $f->addOption("newTab","New Tab");
+    $f->value = $pid && isset($data['pageSettings'][$pid]['position']) ? $data['pageSettings'][$pid]['position'] : $data['position'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'loadOpen');
+    $f->label = __('Load Open, not Collapsed');
+    $f->showIf = "position!=newTab";
+    $f->columnWidth = 25;
+    $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['loadOpen']) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'tabName');
+    $f->label = __('Tab Name');
+    $f->showIf = "position=newTab";
+    $f->required = 1;
+    $f->requiredIf = "position=newTab";
+    $f->columnWidth = 25;
+    $f->description = __('Name for the new tab.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['tabName']) ? $data['pageSettings'][$pid]['tabName'] : $data['tabName'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'editModeTitle');
+    $f->label = __('Edit Mode Title');
+    $f->showIf = "editModes=edit";
+    $f->columnWidth = 33;
+    $f->description = __('Custom title in Edit mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['editModeTitle']) ? $data['pageSettings'][$pid]['editModeTitle'] : $data['editModeTitle'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'editModeDescription');
+    $f->label = __('Edit Mode Description');
+    $f->showIf = "editModes=edit";
+    $f->columnWidth = 34;
+    $f->description = __('Custom text for description in Edit mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['editModeDescription']) ? $data['pageSettings'][$pid]['editModeDescription'] : $data['editModeDescription'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'editModeNotes');
+    $f->label = __('Edit Mode Notes');
+    $f->showIf = "editModes=edit";
+    $f->columnWidth = 33;
+    $f->description = __('Custom text for notes in Edit mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['editModeNotes']) ? $data['pageSettings'][$pid]['editModeNotes'] : $data['editModeNotes'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'addModeTitle');
+    $f->label = __('Add Mode Title');
+    $f->showIf = "editModes=add";
+    $f->columnWidth = 33;
+    $f->description = __('Custom title for Add mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['addModeTitle']) ? $data['pageSettings'][$pid]['addModeTitle'] : $data['addModeTitle'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'addModeDescription');
+    $f->label = __('Add Mode Description');
+    $f->showIf = "editModes=add";
+    $f->columnWidth = 34;
+    $f->description = __('Custom text for description in Add mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['addModeDescription']) ? $data['pageSettings'][$pid]['addModeDescription'] : $data['addModeDescription'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'addModeNotes');
+    $f->label = __('Add Mode Notes');
+    $f->showIf = "editModes=add";
+    $f->columnWidth = 33;
+    $f->description = __('Custom text for notes in Add mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['addModeNotes']) ? $data['pageSettings'][$pid]['addModeNotes'] : $data['addModeNotes'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'overwriteModeTitle');
+    $f->label = __('Overwrite Mode Title');
+    $f->showIf = "editModes=overwrite";
+    $f->columnWidth = 33;
+    $f->description = __('Custom title for Overwrite mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['overwriteModeTitle']) ? $data['pageSettings'][$pid]['overwriteModeTitle'] : $data['overwriteModeTitle'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'overwriteModeDescription');
+    $f->label = __('Overwrite Mode Description');
+    $f->showIf = "editModes=overwrite";
+    $f->columnWidth = 34;
+    $f->description = __('Custom text for description in Overwrite mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['overwriteModeDescription']) ? $data['pageSettings'][$pid]['overwriteModeDescription'] : $data['overwriteModeDescription'];
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'overwriteModeNotes');
+    $f->label = __('Overwrite Mode Notes');
+    $f->showIf = "editModes=overwrite";
+    $f->columnWidth = 33;
+    $f->description = __('Custom text for notes in Add mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]['overwriteModeNotes']) ? $data['pageSettings'][$pid]['overwriteModeNotes'] : $data['overwriteModeNotes'];
+    $wrapper->add($f);
 }
