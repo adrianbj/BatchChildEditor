@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 47,
+            'version' => 48,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -123,7 +123,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //if position is "new tab" we also need to check that the template family settings allow the page to have children
         if($currentData['position'] == 'newTab' && !$this->editedPage->template->noChildren) {
-            $this->addHookAfter('ProcessPageEdit::buildForm', $this, 'addNewTab');
+            $this->addHookAfter('ProcessPageEdit::buildFormContent', $this, 'addNewTab');
         }
         else {
             $this->addHookAfter('ProcessPageEdit::buildFormChildren', $this, 'addChildEditFieldset');
@@ -256,14 +256,32 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //populate currentData with pageSettings version if page has specific settings
         $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
+        //build the content of the tab
         $childEditSet = $this->createChildEditSet($pp, $form);
 
+        //old approach - works, but prevents being able to position the tab anywhere but after the View tab
+        //if going back to this approach, then need to change the hook that calls this method to ProcessPageEdit::buildForm
+        /*
         // create the tab
         $newTab = new InputfieldWrapper();
         $newTab->attr('id', $this->className() . $this->sanitizer->pageName($currentData['tabName'],true));
         $newTab->attr('title', $currentData['tabName']);
         $newTab->prepend($childEditSet);
         $form->prepend($newTab); // this prepend is putting the childeditset before the save button, although I really want to change the order of the tab itself to just after Content
+        */
+
+        $this->modules->get('FieldtypeFieldsetTabOpen');
+        $field = new InputfieldFieldsetTabOpen;
+        $field->name = $this->sanitizer->pageName($currentData['tabName'],true);
+        $field->label = $currentData['tabName'];
+        $form->add($field);
+
+        $form->add($childEditSet);
+
+        $this->modules->get('FieldtypeFieldsetClose');
+        $field = new InputfieldFieldsetClose;
+        $field->name = $this->sanitizer->pageName($currentData['tabName'],true)."_END";
+        $form->add($field);
     }
 
 
