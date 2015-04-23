@@ -297,6 +297,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if(!$cp->is(Page::statusSystemID)) $this->childPages .= "{$cp->title}\r\n";
         }
         $this->childPages = rtrim($this->childPages, "\r\n");
+        if($currentData['ignoreFirstRow']) $this->childPages = "Title\r\n".$this->childPages;
 
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
