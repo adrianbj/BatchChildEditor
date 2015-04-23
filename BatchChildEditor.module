@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 50,
+            'version' => 51,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -172,7 +172,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 // if field pairings are set, make sure a title field is defined
                 // maybe we want to make this optional at some point in case template doesn't actually have/require a title field
                 if(!in_array('title', $convertedFieldPairings)) {
-                    $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings"));
+                    if(count($this->data['pageSettings'][$pp->id]['editModes']) > 1 || (count($this->data['pageSettings'][$pp->id]['editModes']) == 1 && !in_array('overwrite', $this->data['pageSettings'][$pp->id]['editModes']))) {
+                        $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings, unless the only available edit mode is \"Overwrite\"."));
+                    }
                 }
 
                 // make sure all the fields exist in the templates that are possible for child pages
@@ -297,6 +299,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if(!$cp->is(Page::statusSystemID)) $this->childPages .= "{$cp->title}\r\n";
         }
         $this->childPages = rtrim($this->childPages, "\r\n");
+        if($currentData['ignoreFirstRow']) $this->childPages = "Title\r\n".$this->childPages;
 
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
@@ -734,10 +737,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //if defined, get field pairings
         if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
             $convertedFieldPairings = $this->convertFieldPairings($currentData['fieldPairings']);
+            //if it exists, move title to first position in array but maintain keys for pairing to CSV columns
+            $titleKey = array_search('title', $convertedFieldPairings);
+            if($titleKey) $convertedFieldPairings = array($titleKey => $convertedFieldPairings[$titleKey]) + $convertedFieldPairings;
         }
+
 
         $x=0;
         foreach(explode("\n",$childPages) as $childPage) {
+            if($childPage == '') return;
             $i=0;
             $x++;
             if($x==1 && $currentData['ignoreFirstRow']) continue; //ignore first row which contains column names
@@ -762,7 +770,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
 
             //if first loop and replace mode then now it's safe to delete all existing child pages because above checks for field pairings have passed
-            if($x==1 && $this->input->post->edit_mode == "replace") {
+            if(($x==1 || ($x==2 && $currentData['ignoreFirstRow'])) && $this->input->post->edit_mode == "replace") {
                 foreach($pp->children("include=all") as $cp) {
                     if(!$cp->is(Page::statusSystemID)) {
                         $currentData['trashOrDelete'] == 'delete' ? $this->pages->delete($cp, true) : $this->pages->trash($cp);
@@ -770,38 +778,44 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }
 
-            //create new child pages
-            foreach($row as $childField) {
-                $childField = trim($this->sanitizer->text($childField));
-                //if fieldPairings is defined
-                if($currentData['fieldPairings'] != '') {
-                    if($i==0) {
-                        $titleKey = array_search('title', $convertedFieldPairings);
-                        if($row[$titleKey-1] == '') continue;
-                        if(!$overwrite) {
-                            $np = new Page();
-                            $np->parent = $pp;
-                            $np->template = $childTemplate;
-                        }
-                        else {
-                            $np = $pp->children->eq($x-1);
-                            if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
-                                $np->name = trim($this->sanitizer->pageName($row[$titleKey-1], Sanitizer::translate));
-                            }
-                        }
-                        $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
-                        $np->of(false);
-                        $np->save();
-                    }
-                    //populate new page with rest of the field values
-                    else {
-                        if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
-                            $np->$convertedFieldPairings[$i+1] = $childField;
-                            $np->save($convertedFieldPairings[$i+1]);
-                        }
+            //create new or edit existing child pages
+
+            //if fieldPairings is defined and this is first column, then set name/title and create new / get existing page
+            if($i==0 && $currentData['fieldPairings'] != '') {
+                // if title key exists, then make sure it is populated
+                // not necessary in overwrite mode only setups so it may be not set
+                if($titleKey && $row[$titleKey-1] == '') continue;
+                //overwrite mode so re-title/re-name existing page
+                if($overwrite) {
+                    $np = $pp->children->eq($currentData['ignoreFirstRow'] ? $x-2 : $x-1);
+                    if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
+                        if($titleKey) $np->name = trim($this->sanitizer->pageName($row[$titleKey-1], Sanitizer::translate));
                     }
                 }
-                // else all fields matched in order
+                //not overwrite mode, so create new page
+                else {
+                    $np = new Page();
+                    $np->parent = $pp;
+                    $np->template = $childTemplate;
+                }
+
+                if($titleKey) $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
+                $np->of(false);
+                $np->save();
+            }
+
+            //creating pages and populating fields
+            foreach($row as $childField) {
+                $childField = trim($this->sanitizer->text($childField));
+                //if fieldPairings is defined now populate the rest of the fields
+                if($currentData['fieldPairings'] != '') {
+                    //populate new page with rest of the field values
+                    if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
+                        $np->$convertedFieldPairings[$i+1] = $childField;
+                        $np->save($convertedFieldPairings[$i+1]);
+                    }
+                }
+                // else field pairings not defined, so match all fields in order
                 else {
                     //first item is the page title so create new page
                     if($i==0) {
@@ -812,7 +826,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np->template = $childTemplate;
                         }
                         else {
-                            $np = $pp->children->eq($x-1);
+                            $np = $pp->children->eq($currentData['ignoreFirstRow'] ? $x-2 : $x-1);
                             if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
                                 $np->name = trim($this->sanitizer->pageName($childField, Sanitizer::translate));
                             }
@@ -847,21 +861,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public static function getModuleConfigInputfields(array $data) {
 
         $data = array_merge(self::getDefaultData(), $data);
-
-
-        /*if($data['protectSite'] && (!isset($data['protectedPages'][1]) || $data['protectedPages'][1]['children'] == null)) {
-            unset($data['protectedPages'][1]); // remove existing record for this page - need a clear slate for adding new settings or if it was just disabled
-            $data['protectedPages'][1]['children'] = 1;
-            $data['protectedPages'][1]['message_override'] = $data['message'];
-            $data['protectedPages'][1]['roles'] = null;
-            if($data['login_template'] != '') $data['protectedPages'][1]['prohibited_message'] = $data['prohibited_message'];
-        }
-
-        unset($data['protectSite']);
-
-        // save to config data with the rest of the settings
-        wire('modules')->saveModuleConfigData(wire('modules')->get("BatchChildEditor"), $data);*/
-
 
         $wrapper = new InputFieldWrapper();
 
@@ -1051,7 +1050,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->name = 'fieldPairings';
         $f->label = __('CSV Field Pairings');
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
-        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB You must include at least the title field, but all other fields are optional.");
+        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB Unless the only edit mode is \"Overwrite\", you must include at least the title field, but all other fields are optional.");
         $f->showIf = "editModes=add|overwrite|replace";
         $f->value = isset($data['pageSettings'][$pid]['fieldPairings']) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
         $wrapper->add($f);
