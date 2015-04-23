@@ -784,7 +784,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np->template = $childTemplate;
                         }
                         else {
-                            $np = $pp->children->eq($x-1);
+                            $np = $pp->children->eq($currentData['ignoreFirstRow'] ? $x-2 : $x-1);
                             if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
                                 $np->name = trim($this->sanitizer->pageName($row[$titleKey-1], Sanitizer::translate));
                             }
@@ -812,7 +812,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np->template = $childTemplate;
                         }
                         else {
-                            $np = $pp->children->eq($x-1);
+                            $np = $pp->children->eq($currentData['ignoreFirstRow'] ? $x-2 : $x-1);
                             if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
                                 $np->name = trim($this->sanitizer->pageName($childField, Sanitizer::translate));
                             }
