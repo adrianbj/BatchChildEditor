@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 52,
+            'version' => 53,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -172,8 +172,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 // if field pairings are set, make sure a title field is defined
                 // maybe we want to make this optional at some point in case template doesn't actually have/require a title field
                 if(!in_array('title', $convertedFieldPairings)) {
-                    if(count($this->data['pageSettings'][$pp->id]['editModes']) > 1 || (count($this->data['pageSettings'][$pp->id]['editModes']) == 1 && !in_array('update', $this->data['pageSettings'][$pp->id]['editModes']))) {
-                        $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings, unless the only available edit mode is \"Update\"."));
+                    if(in_array('add', $this->data['pageSettings'][$pp->id]['editModes']) || in_array('replace', $this->data['pageSettings'][$pp->id]['editModes'])) {
+                        $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings, unless the only available edit modes are \"Edit\" and \"Update\"."));
                     }
                 }
 
@@ -577,12 +577,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if(!$currentData['disableContentProtection']){
                 foreach($pp->children("include=all") as $cp){
                     if($cp->numChildren>0){
-                        $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first."));
+                        $this->error($this->_("You cannot batch replace these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first."));
                         return;
                     }
                     foreach($cp->fields as $cpfield){
                         if($cpfield->name != 'title' && $cp->$cpfield !=''){
-                            $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first."));
+                            $this->error($this->_("You cannot batch replace these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first."));
                             return;
                         }
                     }
@@ -604,21 +604,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             //if content (textarea, URL or CSV upload) hasn't changed, escape now to prevent unwanted deletion and recreation of pages
             if($childPagesUpdate == $this->childPages) return;
 
-
-            if(!$currentData['disableContentProtection']){
-                foreach($pp->children("include=all") as $cp){
-                    if($cp->numChildren>0){
-                        $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first."));
-                        return;
-                    }
-                    foreach($cp->fields as $cpfield){
-                        if($cpfield->name != 'title' && $cp->$cpfield !=''){
-                            $this->error($this->_("You cannot bulk edit these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first."));
-                            return;
-                        }
-                    }
-                }
-            }
             $this->createPages($childPagesUpdate, $pp, $childTemplate);
         }
         //Add mode
@@ -761,7 +746,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }
             //if field pairings are defined, check that the field/column count in the CSV is at least as many as the number of defined pairings
-            //if field pairings are defined then we don't allow titles only, hence no check for count($row) > 1
+            //if field pairings are defined then we don't allow titles only (unless that is the only pairing defined), hence no check for count($row) > 1
             else {
                 if(count($row) < count($convertedFieldPairings)) {
                     $this->error($this->_("The number of columns/fields in your CSV is not enough for number of fields defined for this import. Nothing can be safely imported."));
@@ -1052,7 +1037,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->name = 'fieldPairings';
         $f->label = __('CSV Field Pairings');
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
-        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB Unless the only edit mode is \"Update\", you must include at least the title field, but all other fields are optional.");
+        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
         $f->value = isset($data['pageSettings'][$pid]['fieldPairings']) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
         $wrapper->add($f);
