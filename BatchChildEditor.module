@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 57,
+            'version' => 58,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -386,7 +386,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=add";
                 $f->label = __("Paste CSV");
                 $f->attr('value', '');
-                if(!in_array('paste',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -397,7 +397,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
-                if(!in_array('link',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('link',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -407,7 +407,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'csvUploadAdd';
                 $f->showIf = "edit_mode=add";
                 $f->value = "<input name='csvAddFile' type='file' />";
-                if(!in_array('upload',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('upload',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
@@ -431,7 +431,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=update";
                 $f->label = __("Paste CSV");
                 $f->attr('value', $this->childPages);
-                if(!in_array('paste',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -442,7 +442,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
-                if(!in_array('link',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('link',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -452,7 +452,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'csvUploadUpdate';
                 $f->showIf = "edit_mode=update";
                 $f->value = "<input name='csvUpdateFile' type='file' />";
-                if(!in_array('upload',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('upload',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
@@ -476,7 +476,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=replace";
                 $f->label = __("Paste CSV");
                 $f->attr('value', $this->childPages);
-                if(!in_array('paste',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -487,7 +487,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
-                if(!in_array('link',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('link',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -497,7 +497,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'csvUploadReplace';
                 $f->showIf = "edit_mode=replace";
                 $f->value = "<input name='csvReplaceFile' type='file' />";
-                if(!in_array('upload',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
+                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('upload',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
