@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 56,
+            'version' => 57,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -193,7 +193,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $missingFields = array();
                 foreach($possibleTemplates as $t) {
                     foreach($convertedFieldPairings as $f) {
-                        if (strpos($f,'.')){
+                        //check for subfields with period (.) separator and extract parent field name
+                        if (strpos($f,'.')) {
                             $fieldParts = explode('.', $f);
                             $f = $fieldParts[0];
                         }
@@ -1072,7 +1073,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->name = 'fieldPairings';
         $f->label = __('CSV field pairings');
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
-        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
+        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n5:parentfield.subfield\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
         $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
         $wrapper->add($f);
