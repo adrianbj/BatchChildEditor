@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 55,
+            'version' => 56,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -193,6 +193,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $missingFields = array();
                 foreach($possibleTemplates as $t) {
                     foreach($convertedFieldPairings as $f) {
+                        if (strpos($f,'.')){
+                            $fieldParts = explode('.', $f);
+                            $f = $fieldParts[0];
+                        }
                         if(!$this->templates->get($t)->hasField($f)) $missingFields[] = $f;
                     }
                 }
@@ -806,8 +810,16 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if($currentData['fieldPairings'] != '') {
                     //populate new page with rest of the field values
                     if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
-                        $np->$convertedFieldPairings[$i+1] = $childField;
-                        $np->save($convertedFieldPairings[$i+1]);
+                        //check for subfields (eg textareas pro field) with a period (.) separator
+                        if (strpos($convertedFieldPairings[$i+1],'.')){
+                            $fieldParts = explode('.', $convertedFieldPairings[$i+1]);
+                            $np->$fieldParts[0]->$fieldParts[1] = $childField;
+                            $np->save($fieldParts[0]);
+                        }
+                        else {
+                            $np->$convertedFieldPairings[$i+1] = $childField;
+                            $np->save($convertedFieldPairings[$i+1]);
+                        }
                     }
                 }
                 // else field pairings not defined, so match all fields in order
