@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 54,
+            'version' => 55,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -965,7 +965,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->addOption("add","Add");
     $f->addOption("update","Update");
     $f->addOption("replace","Replace");
-    $f->value = $pid && isset($data['pageSettings'][$pid]['editModes']) ? $data['pageSettings'][$pid]['editModes'] : $data['editModes'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['editModes'] : $data['editModes'];
     $f->notes = __("The Edit and Add modes are safer than the Update and Replace modes, because they are non-destructive.\n\nUpdate will edit the content of fields of existing pages. Replace will delete all child pages and create new ones.");
     $wrapper->add($f);
 
@@ -976,7 +976,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=edit|update";
     $f->columnWidth = 25;
     $f->description = __('Whether to overwrite the name of the page, and not just the title.');
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['overwriteNames']) ? $data['pageSettings'][$pid]['overwriteNames'] : $data['overwriteNames']) ? 'checked' : '' );
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['overwriteNames'] : $data['overwriteNames']) ? 'checked' : '' );
     $f->notes = __("Only relevant for Edit and Update modes. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
     $wrapper->add($f);
 
@@ -986,7 +986,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=edit|update";
     $f->columnWidth = 25;
     $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['allowOverrideOverwriteNames']) ? $data['pageSettings'][$pid]['allowOverrideOverwriteNames'] : $data['allowOverrideOverwriteNames']) ? 'checked' : '' );
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideOverwriteNames'] : $data['allowOverrideOverwriteNames']) ? 'checked' : '' );
     $f->notes = __("Only relevant for Edit and Update modes.");
     $wrapper->add($f);
 
@@ -997,7 +997,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->columnWidth = 25;
     $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
     $f->notes = __("This can be extremely destructive, use with extreme caution!");
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['disableContentProtection']) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldCheckboxes");
@@ -1012,7 +1012,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->addOption("paste","Text/Paste");
     $f->addOption("link","Link (URL)");
     $f->addOption("upload","Upload");
-    $f->value = $pid && isset($data['pageSettings'][$pid]['csvOptions']) ? $data['pageSettings'][$pid]['csvOptions'] : $data['csvOptions'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptions'] : $data['csvOptions'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldCheckboxes");
@@ -1025,7 +1025,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->addOption("paste","Text/Paste");
     $f->addOption("link","Link (URL)");
     $f->addOption("upload","Upload");
-    $f->value = $pid && isset($data['pageSettings'][$pid]['csvOptionsCollapsed']) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -1033,7 +1033,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('CSV fields separated with');
     $f->showIf = "editModes=add|update|replace";
     $f->notes = __('For tab separated, enter: tab');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['fieldSeparator']) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
     $f->columnWidth = 20;
     $wrapper->add($f);
 
@@ -1041,7 +1041,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->name = 'fieldEnclosure';
     $f->label = __('CSV field enclosure');
     $f->showIf = "editModes=add|update|replace";
-    $f->value = $pid && isset($data['pageSettings'][$pid]['fieldEnclosure']) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
     $f->columnWidth = 20;
     $wrapper->add($f);
 
@@ -1050,7 +1050,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('CSV ignore the first row');
     $f->showIf = "editModes=add|update|replace";
     $f->notes = __('Use this if the first row is field names');
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['ignoreFirstRow']) ? $data['pageSettings'][$pid]['ignoreFirstRow'] : $data['ignoreFirstRow']) ? 'checked' : '' );
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['ignoreFirstRow'] : $data['ignoreFirstRow']) ? 'checked' : '' );
     $f->columnWidth = 20;
     $wrapper->add($f);
 
@@ -1062,7 +1062,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
         $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
-        $f->value = isset($data['pageSettings'][$pid]['fieldPairings']) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
+        $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
         $wrapper->add($f);
     }
 
@@ -1073,7 +1073,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
     $f->addOption("trash","Trash");
     $f->addOption("delete","Delete");
-    $f->value = $pid && isset($data['pageSettings'][$pid]['trashOrDelete']) ? $data['pageSettings'][$pid]['trashOrDelete'] : $data['trashOrDelete'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['trashOrDelete'] : $data['trashOrDelete'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldRadios");
@@ -1085,7 +1085,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->addOption("bottom","Bottom");
     $f->addOption("replace","Replace");
     $f->addOption("newTab","New Tab");
-    $f->value = $pid && isset($data['pageSettings'][$pid]['position']) ? $data['pageSettings'][$pid]['position'] : $data['position'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['position'] : $data['position'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");
@@ -1094,7 +1094,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "position!=newTab";
     $f->columnWidth = 25;
     $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['loadOpen']) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -1105,7 +1105,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->requiredIf = "position=newTab";
     $f->columnWidth = 25;
     $f->description = __('Name for the new tab.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['tabName']) ? $data['pageSettings'][$pid]['tabName'] : $data['tabName'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['tabName'] : $data['tabName'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -1114,7 +1114,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=edit";
     $f->columnWidth = 33;
     $f->description = __('Custom title in Edit mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['editModeTitle']) ? $data['pageSettings'][$pid]['editModeTitle'] : $data['editModeTitle'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['editModeTitle'] : $data['editModeTitle'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1123,7 +1123,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=edit";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Edit mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['editModeDescription']) ? $data['pageSettings'][$pid]['editModeDescription'] : $data['editModeDescription'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['editModeDescription'] : $data['editModeDescription'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1132,7 +1132,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=edit";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Edit mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['editModeNotes']) ? $data['pageSettings'][$pid]['editModeNotes'] : $data['editModeNotes'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['editModeNotes'] : $data['editModeNotes'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -1141,7 +1141,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=add";
     $f->columnWidth = 33;
     $f->description = __('Custom title for Add mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['addModeTitle']) ? $data['pageSettings'][$pid]['addModeTitle'] : $data['addModeTitle'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['addModeTitle'] : $data['addModeTitle'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1150,7 +1150,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=add";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Add mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['addModeDescription']) ? $data['pageSettings'][$pid]['addModeDescription'] : $data['addModeDescription'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['addModeDescription'] : $data['addModeDescription'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1159,7 +1159,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=add";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Add mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['addModeNotes']) ? $data['pageSettings'][$pid]['addModeNotes'] : $data['addModeNotes'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['addModeNotes'] : $data['addModeNotes'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -1168,7 +1168,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=update";
     $f->columnWidth = 33;
     $f->description = __('Custom title for Update mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['updateModeTitle']) ? $data['pageSettings'][$pid]['updateModeTitle'] : $data['updateModeTitle'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['updateModeTitle'] : $data['updateModeTitle'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1177,7 +1177,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=update";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Update mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['updateModeDescription']) ? $data['pageSettings'][$pid]['updateModeDescription'] : $data['updateModeDescription'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['updateModeDescription'] : $data['updateModeDescription'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1186,7 +1186,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=update";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Add mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['updateModeNotes']) ? $data['pageSettings'][$pid]['updateModeNotes'] : $data['updateModeNotes'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['updateModeNotes'] : $data['updateModeNotes'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -1195,7 +1195,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=replace";
     $f->columnWidth = 33;
     $f->description = __('Custom title for Replace mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['replaceModeTitle']) ? $data['pageSettings'][$pid]['replaceModeTitle'] : $data['replaceModeTitle'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['replaceModeTitle'] : $data['replaceModeTitle'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1204,7 +1204,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=replace";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Replace mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['replaceModeDescription']) ? $data['pageSettings'][$pid]['replaceModeDescription'] : $data['replaceModeDescription'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['replaceModeDescription'] : $data['replaceModeDescription'];
     $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldTextarea");
@@ -1213,6 +1213,6 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=replace";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Add mode.');
-    $f->value = $pid && isset($data['pageSettings'][$pid]['replaceModeNotes']) ? $data['pageSettings'][$pid]['replaceModeNotes'] : $data['replaceModeNotes'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['replaceModeNotes'] : $data['replaceModeNotes'];
     $wrapper->add($f);
 }
