@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 53,
+            'version' => 54,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -51,7 +51,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "overwriteNames" => "",
                 "allowOverrideOverwriteNames" => "",
                 "loadOpen" => "",
-                "csvOptions" => "",
+                "csvOptions" => array(),
+                "csvOptionsCollapsed" => array(),
                 "fieldSeparator" => ",",
                 "fieldEnclosure" => '"',
                 "ignoreFirstRow" => 0,
@@ -380,6 +381,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=add";
                 $f->label = __("Paste CSV");
                 $f->attr('value', '');
+                if(!in_array('paste',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -390,6 +392,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
+                if(!in_array('link',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -399,6 +402,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'csvUploadAdd';
                 $f->showIf = "edit_mode=add";
                 $f->value = "<input name='csvAddFile' type='file' />";
+                if(!in_array('upload',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
@@ -422,6 +426,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=update";
                 $f->label = __("Paste CSV");
                 $f->attr('value', $this->childPages);
+                if(!in_array('paste',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -432,6 +437,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
+                if(!in_array('link',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -441,6 +447,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'csvUploadUpdate';
                 $f->showIf = "edit_mode=update";
                 $f->value = "<input name='csvUpdateFile' type='file' />";
+                if(!in_array('upload',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
@@ -464,6 +471,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=replace";
                 $f->label = __("Paste CSV");
                 $f->attr('value', $this->childPages);
+                if(!in_array('paste',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -474,6 +482,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
+                if(!in_array('link',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
@@ -483,6 +492,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'csvUploadReplace';
                 $f->showIf = "edit_mode=replace";
                 $f->value = "<input name='csvReplaceFile' type='file' />";
+                if(!in_array('upload',$currentData['csvOptionsCollapsed'])) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
@@ -947,7 +957,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f = wire('modules')->get("InputfieldCheckboxes");
     $f->attr('name', 'editModes');
-    $f->label = __('Edit Modes');
+    $f->label = __('Edit modes');
     $f->required = true;
     $f->columnWidth = 25;
     $f->description = __('Which edit modes you want available. If more than one checked, then the user can decide.');
@@ -982,7 +992,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'disableContentProtection');
-    $f->label = __('Disable Content Protection');
+    $f->label = __('Disable content protection');
     $f->showIf = "editModes=replace|edit";
     $f->columnWidth = 25;
     $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
@@ -992,11 +1002,11 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldCheckboxes");
     $f->attr('name', 'csvOptions');
-    $f->label = __('Page Titles / CSV Options');
+    $f->label = __('Page data options');
     $f->showIf = "editModes=add|update|replace";
     $f->required = true;
     $f->requiredIf = "editModes=add|update|replace";
-    $f->columnWidth = 40;
+    $f->columnWidth = 20;
     $f->description = __('Which page entry options do you want available.');
     $f->notes = __("For creating page title/names only, then Text/Paste is likely the most relevant option. CSV options to the right only relevant if populating other page fields in addition to the title/name.");
     $f->addOption("paste","Text/Paste");
@@ -1005,9 +1015,22 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->value = $pid && isset($data['pageSettings'][$pid]['csvOptions']) ? $data['pageSettings'][$pid]['csvOptions'] : $data['csvOptions'];
     $wrapper->add($f);
 
+    $f = wire('modules')->get("InputfieldCheckboxes");
+    $f->attr('name', 'csvOptionsCollapsed');
+    $f->label = __('Page data options collapsed status');
+    $f->showIf = "editModes=add|update|replace";
+    $f->columnWidth = 20;
+    $f->description = __('Which page entry options do you want open vs collapsed.');
+    $f->notes = __("Checked options will be open by default.");
+    $f->addOption("paste","Text/Paste");
+    $f->addOption("link","Link (URL)");
+    $f->addOption("upload","Upload");
+    $f->value = $pid && isset($data['pageSettings'][$pid]['csvOptionsCollapsed']) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
+    $wrapper->add($f);
+
     $f = wire('modules')->get("InputfieldText");
     $f->name = 'fieldSeparator';
-    $f->label = __('CSV Fields separated with');
+    $f->label = __('CSV fields separated with');
     $f->showIf = "editModes=add|update|replace";
     $f->notes = __('For tab separated, enter: tab');
     $f->value = $pid && isset($data['pageSettings'][$pid]['fieldSeparator']) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
@@ -1016,7 +1039,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->name = 'fieldEnclosure';
-    $f->label = __('CSV Field enclosure');
+    $f->label = __('CSV field enclosure');
     $f->showIf = "editModes=add|update|replace";
     $f->value = $pid && isset($data['pageSettings'][$pid]['fieldEnclosure']) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
     $f->columnWidth = 20;
@@ -1024,7 +1047,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->name = 'ignoreFirstRow';
-    $f->label = __('CSV Ignore the first row');
+    $f->label = __('CSV ignore the first row');
     $f->showIf = "editModes=add|update|replace";
     $f->notes = __('Use this if the first row is field names');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]['ignoreFirstRow']) ? $data['pageSettings'][$pid]['ignoreFirstRow'] : $data['ignoreFirstRow']) ? 'checked' : '' );
@@ -1035,7 +1058,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     if(wire('input')->get->id) {
         $f = wire('modules')->get("InputfieldTextarea");
         $f->name = 'fieldPairings';
-        $f->label = __('CSV Field Pairings');
+        $f->label = __('CSV field pairings');
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
         $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
@@ -1067,7 +1090,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'loadOpen');
-    $f->label = __('Load Open, not Collapsed');
+    $f->label = __('Load open, not collapsed');
     $f->showIf = "position!=newTab";
     $f->columnWidth = 25;
     $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
@@ -1076,7 +1099,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->attr('name', 'tabName');
-    $f->label = __('Tab Name');
+    $f->label = __('Tab name');
     $f->showIf = "position=newTab";
     $f->required = 1;
     $f->requiredIf = "position=newTab";
@@ -1087,7 +1110,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->attr('name', 'editModeTitle');
-    $f->label = __('Edit Mode Title');
+    $f->label = __('Edit mode title');
     $f->showIf = "editModes=edit";
     $f->columnWidth = 33;
     $f->description = __('Custom title in Edit mode.');
@@ -1096,7 +1119,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'editModeDescription');
-    $f->label = __('Edit Mode Description');
+    $f->label = __('Edit mode description');
     $f->showIf = "editModes=edit";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Edit mode.');
@@ -1105,7 +1128,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'editModeNotes');
-    $f->label = __('Edit Mode Notes');
+    $f->label = __('Edit mode notes');
     $f->showIf = "editModes=edit";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Edit mode.');
@@ -1114,7 +1137,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->attr('name', 'addModeTitle');
-    $f->label = __('Add Mode Title');
+    $f->label = __('Add mode title');
     $f->showIf = "editModes=add";
     $f->columnWidth = 33;
     $f->description = __('Custom title for Add mode.');
@@ -1123,7 +1146,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'addModeDescription');
-    $f->label = __('Add Mode Description');
+    $f->label = __('Add mode description');
     $f->showIf = "editModes=add";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Add mode.');
@@ -1132,7 +1155,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'addModeNotes');
-    $f->label = __('Add Mode Notes');
+    $f->label = __('Add mode notes');
     $f->showIf = "editModes=add";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Add mode.');
@@ -1141,7 +1164,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->attr('name', 'updateModeTitle');
-    $f->label = __('Update Mode Title');
+    $f->label = __('Update mode title');
     $f->showIf = "editModes=update";
     $f->columnWidth = 33;
     $f->description = __('Custom title for Update mode.');
@@ -1150,7 +1173,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'updateModeDescription');
-    $f->label = __('Update Mode Description');
+    $f->label = __('Update mode description');
     $f->showIf = "editModes=update";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Update mode.');
@@ -1159,7 +1182,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'updateModeNotes');
-    $f->label = __('Update Mode Notes');
+    $f->label = __('Update mode notes');
     $f->showIf = "editModes=update";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Add mode.');
@@ -1168,7 +1191,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->attr('name', 'replaceModeTitle');
-    $f->label = __('Replace Mode Title');
+    $f->label = __('Replace mode title');
     $f->showIf = "editModes=replace";
     $f->columnWidth = 33;
     $f->description = __('Custom title for Replace mode.');
@@ -1177,7 +1200,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'replaceModeDescription');
-    $f->label = __('Replace Mode Description');
+    $f->label = __('Replace mode description');
     $f->showIf = "editModes=replace";
     $f->columnWidth = 34;
     $f->description = __('Custom text for description in Replace mode.');
@@ -1186,7 +1209,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldTextarea");
     $f->attr('name', 'replaceModeNotes');
-    $f->label = __('Replace Mode Notes');
+    $f->label = __('Replace mode notes');
     $f->showIf = "editModes=replace";
     $f->columnWidth = 33;
     $f->description = __('Custom text for notes in Add mode.');
