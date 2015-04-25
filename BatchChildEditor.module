@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 58,
+            'version' => 59,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -323,6 +323,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             foreach($currentData['editModes'] as $editMode){
                 $f->addOption($editMode, ucfirst($editMode));
             }
+            $f->value = $this->session->edit_mode;
             $childEditSet->add($f);
         }
         else{
@@ -384,7 +385,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f = $this->modules->get("InputfieldTextarea");
                 $f->name = "childPagesAdd";
                 $f->showIf = "edit_mode=add";
-                $f->label = __("Paste CSV");
+                $f->label = __("Text / Paste CSV");
                 $f->attr('value', '');
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
@@ -429,7 +430,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f = $this->modules->get("InputfieldTextarea");
                 $f->name = "childPagesUpdate";
                 $f->showIf = "edit_mode=update";
-                $f->label = __("Paste CSV");
+                $f->label = __("Text / Paste CSV");
                 $f->attr('value', $this->childPages);
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
@@ -474,7 +475,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f = $this->modules->get("InputfieldTextarea");
                 $f->name = "childPagesReplace";
                 $f->showIf = "edit_mode=replace";
-                $f->label = __("Paste CSV");
+                $f->label = __("Text / Paste CSV");
                 $f->attr('value', $this->childPages);
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
@@ -560,6 +561,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         // early exit if no edit mode has been selected
         if(!$this->input->post->edit_mode) return;
+
+        $this->session->edit_mode = $this->input->post->edit_mode;
 
         // ProcessPageEdit's processInput function may go recursive, so we want to skip
         // the instances where it does that by checking the second argument named "level"
@@ -800,8 +803,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
 
                 if($titleKey) $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
-                $np->of(false);
-                $np->save();
+                if($np->isChanged("title")) {
+                    $np->of(false);
+                    $np->save();
+                }
             }
 
             //creating pages and populating fields
@@ -815,11 +820,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         if (strpos($convertedFieldPairings[$i+1],'.')){
                             $fieldParts = explode('.', $convertedFieldPairings[$i+1]);
                             $np->$fieldParts[0]->$fieldParts[1] = $childField;
-                            $np->save($fieldParts[0]);
+                            if($np->isChanged($fieldParts[0])) {
+                                $np->of(false);
+                                $np->save($fieldParts[0]);
+                            }
                         }
                         else {
                             $np->$convertedFieldPairings[$i+1] = $childField;
-                            $np->save($convertedFieldPairings[$i+1]);
+                            if($np->isChanged($convertedFieldPairings[$i+1])) {
+                                $np->of(false);
+                                $np->save($convertedFieldPairings[$i+1]);
+                            }
                         }
                     }
                 }
@@ -842,8 +853,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np->template = $childTemplate;
                         }
                         $np->title = trim($this->sanitizer->text($childField));
-                        $np->of(false);
-                        $np->save();
+                        if($np->isChanged("title")) {
+                            $np->of(false);
+                            $np->save();
+                        }
 
                         //populate numeric array of field names
                         $fieldsArray = array();
@@ -852,7 +865,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     //populate new page with rest of the field values
                     else {
                         $np->$fieldsArray[$i] = $childField;
-                        $np->save($fieldsArray[$i]);
+                        if($np->isChanged($fieldsArray[$i])) {
+                            $np->of(false);
+                            $np->save($fieldsArray[$i]);
+                        }
                     }
                 }
                 $i++;
@@ -1021,8 +1037,8 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->requiredIf = "editModes=add|update|replace";
     $f->columnWidth = 20;
     $f->description = __('Which page entry options do you want available.');
-    $f->notes = __("For creating page title/names only, then Text/Paste is likely the most relevant option. CSV options to the right only relevant if populating other page fields in addition to the title/name.");
-    $f->addOption("paste","Text/Paste");
+    $f->notes = __("For creating page title/names only, then Text / Paste is likely the most relevant option. CSV options to the right only relevant if populating other page fields in addition to the title/name.");
+    $f->addOption("paste","Text / Paste");
     $f->addOption("link","Link (URL)");
     $f->addOption("upload","Upload");
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptions'] : $data['csvOptions'];
@@ -1035,7 +1051,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->columnWidth = 20;
     $f->description = __('Which page entry options do you want open vs collapsed.');
     $f->notes = __("Checked options will be open by default.");
-    $f->addOption("paste","Text/Paste");
+    $f->addOption("paste","Text / Paste");
     $f->addOption("link","Link (URL)");
     $f->addOption("upload","Upload");
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
