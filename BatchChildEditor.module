@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 59,
+            'version' => 60,
             'permanent' => false,
             'autoload' => true,
             'icon'     => 'child'
@@ -55,7 +55,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "csvOptionsCollapsed" => array(),
                 "fieldSeparator" => ",",
                 "fieldEnclosure" => '"',
-                "ignoreFirstRow" => 0,
+                "ignoreFirstRow" => "",
+                "allowOverrideCsvSettings" => "",
                 "fieldPairings" => "",
                 "trashOrDelete" => "trash",
                 "position" => "bottom",
@@ -301,6 +302,18 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //populate currentData with pageSettings version if page has specific settings
         $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
+        //get user CSV setting overrides if allowed
+        if($currentData['allowOverrideCsvSettings']) {
+
+            $fieldSeparator = $currentData['fieldSeparator'];
+            $fieldEnclosure = $currentData['fieldEnclosure'];
+            $ignoreFirstRow = $currentData['ignoreFirstRow'];
+
+            $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
+            $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
+            $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
+        }
+
         foreach($pp->children("include=all") as $cp) {
             if(!$cp->is(Page::statusSystemID)) $this->childPages .= "{$cp->title}\r\n";
         }
@@ -316,11 +329,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if(count($currentData['editModes'])>1){
             $f = $this->modules->get("InputfieldRadios");
             $f->attr('name', 'edit_mode');
-            $f->label = __('Edit, Add, Update, or Replace');
-            $f->optionColumns = 1;
+            $f->label = __('Edit Mode');
+            if(!$currentData['allowOverrideOverwriteNames']) $f->optionColumns = 1;
             $f->columnWidth = 33;
-            $f->description = __('Whether to edit, add to, update, or replace the entire list of child pages. Choose an option to read more about how it works.');
             foreach($currentData['editModes'] as $editMode){
+                if($editMode == 'update' && $pp->children->count == 0) continue;
                 $f->addOption($editMode, ucfirst($editMode));
             }
             $f->value = $this->session->edit_mode;
@@ -368,6 +381,44 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->add($f);
         }
 
+        // User CSV Import Settings
+        if($currentData['allowOverrideCsvSettings'] && (in_array('add', $currentData['editModes']) || in_array('update', $currentData['editModes']) || in_array('replace', $currentData['editModes']))) {
+
+            $csvSettingsFieldset = $this->modules->get("InputfieldFieldset");
+            $csvSettingsFieldset->label = __("CSV Import Settings");
+            $csvSettingsFieldset->showIf = "edit_mode=add|update|replace";
+            //if all CSV settings are the same as defaults (page or module level), then collapse
+            if($fieldSeparator == $currentData['fieldSeparator'] && $fieldEnclosure == $currentData['fieldEnclosure'] && $ignoreFirstRow == $currentData['ignoreFirstRow']) $csvSettingsFieldset->collapsed = Inputfield::collapsedYes;
+            $childEditSet->add($csvSettingsFieldset);
+
+            $f = wire('modules')->get("InputfieldText");
+            $f->name = 'userFieldSeparator';
+            $f->label = __('CSV fields separated with');
+            $f->showIf = "edit_mode=add|update|replace";
+            $f->notes = __('For tab separated, enter: tab');
+            $f->value = $this->session->userFieldSeparator ? $this->session->userFieldSeparator : $currentData['fieldSeparator'];
+            $f->columnWidth = 33;
+            $csvSettingsFieldset->append($f);
+
+            $f = wire('modules')->get("InputfieldText");
+            $f->name = 'userFieldEnclosure';
+            $f->label = __('CSV field enclosure');
+            $f->showIf = "edit_mode=add|update|replace";
+            $f->value = $this->session->userFieldEnclosure ? $this->session->userFieldEnclosure : $currentData['fieldEnclosure'];
+            $f->columnWidth = 34;
+            $csvSettingsFieldset->append($f);
+
+            $f = wire('modules')->get("InputfieldCheckbox");
+            $f->attr('name', 'userIgnoreFirstRow');
+            $f->label = __('CSV ignore the first row');
+            $f->description = __('Use this if the first row contains column/field labels.');
+            $f->showIf = "edit_mode=add|update|replace";
+            //using $this->session->userFieldSeparator in the ternary conditional because when $this->session->userIgnoreFirstRow is not "1", it doesn't seem to exist, even with isset!
+            //this is fine, because once page has been saved, with any of these overrides, we have values for all in the session variable
+            $f->attr('checked', ($this->session->userFieldSeparator ? $this->session->userIgnoreFirstRow : $currentData['ignoreFirstRow']) ? 'checked' : '' );
+            $f->columnWidth = 33;
+            $csvSettingsFieldset->append($f);
+        }
 
         // Add
         if(in_array('add', $currentData['editModes'])) {
@@ -386,7 +437,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = "childPagesAdd";
                 $f->showIf = "edit_mode=add";
                 $f->label = __("Text / Paste CSV");
-                $f->attr('value', '');
+                if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
+                $f->attr('value', $currentData['ignoreFirstRow'] ? 'Title' : '');
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
@@ -431,6 +483,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = "childPagesUpdate";
                 $f->showIf = "edit_mode=update";
                 $f->label = __("Text / Paste CSV");
+                if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
                 $f->attr('value', $this->childPages);
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
@@ -476,6 +529,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = "childPagesReplace";
                 $f->showIf = "edit_mode=replace";
                 $f->label = __("Text / Paste CSV");
+                if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
                 $f->attr('value', $this->childPages);
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
@@ -573,6 +627,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //populate currentData with pageSettings version if page has specific settings
         $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        //get user CSV setting overrides if allowed
+        if($currentData['allowOverrideCsvSettings']) {
+            $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
+            $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
+            $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
+        }
 
         //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
         $childTemplate = $this->input->post->childTemplate ? $this->input->post->childTemplate : $pp->template->childTemplates[0];
@@ -733,9 +794,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childPages = trim(preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $childPages),"\n"); // remove any blank lines
         $childPages = str_replace("\r\n","\n", $childPages); //fix for Windows line endings
         $childPages = str_replace("\r","\n", $childPages); //fix for Mac Excel line ending issue - http://nicercode.github.io/blog/2013-04-30-excel-and-line-endings/
+        $childPagesArray = explode("\n",$childPages);
 
         //populate currentData with pageSettings version if page has specific settings
         $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        //get user CSV setting overrides if allowed
+        if($currentData['allowOverrideCsvSettings']) {
+            $currentData['fieldSeparator'] = $this->session->userFieldSeparator = $this->input->post->userFieldSeparator;
+            $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure = $this->input->post->userFieldEnclosure;
+            $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow = $this->input->post->userIgnoreFirstRow;
+        }
 
         //if defined, get field pairings
         if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
@@ -745,13 +814,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if($titleKey) $convertedFieldPairings = array($titleKey => $convertedFieldPairings[$titleKey]) + $convertedFieldPairings;
         }
 
-
+        //iterate through rows in childpages data (text/paste, URL, or uploaded CSV)
         $x=0;
-        foreach(explode("\n",$childPages) as $childPage) {
-            if($childPage == '') return;
+        foreach($childPagesArray as $childPage) {
+            //if($childPage == '') return; TODO Does this need to be on for Add mode? Was breaking replace mode from deleting existing pages
             $i=0;
             $x++;
-            if($x==1 && $currentData['ignoreFirstRow']) continue; //ignore first row which contains column names
 
             $row = str_getcsv($childPage, $currentData['fieldSeparator'] == "tab" ? chr(9) : $currentData['fieldSeparator'], $currentData['fieldEnclosure']);
 
@@ -781,8 +849,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }
 
+            if($x==1 && $currentData['ignoreFirstRow']) continue;
             //create new or edit existing child pages
-
             //if fieldPairings is defined and this is first column, then set name/title and create new / get existing page
             if($i==0 && $currentData['fieldPairings'] != '') {
                 // if title key exists, then make sure it is populated
@@ -843,7 +911,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         if($this->input->post->edit_mode == "update") {
                             $np = $pp->children->eq($currentData['ignoreFirstRow'] ? $x-2 : $x-1);
                             if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
-                                $np->name = trim($this->sanitizer->pageName($childField, Sanitizer::translate));
+                                if($np->id) {
+                                    $np->name = trim($this->sanitizer->pageName($childField, Sanitizer::translate));
+                                }
+                                // for new pages added at the end when using Update mode
+                                else {
+                                    $np = new Page();
+                                    $np->parent = $pp;
+                                    $np->template = $childTemplate;
+                                }
                             }
                         }
                         //not update mode, so create new page
@@ -1035,7 +1111,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=add|update|replace";
     $f->required = true;
     $f->requiredIf = "editModes=add|update|replace";
-    $f->columnWidth = 20;
+    $f->columnWidth = wire('input')->get->id ? 25 : 50;
     $f->description = __('Which page entry options do you want available.');
     $f->notes = __("For creating page title/names only, then Text / Paste is likely the most relevant option. CSV options to the right only relevant if populating other page fields in addition to the title/name.");
     $f->addOption("paste","Text / Paste");
@@ -1048,39 +1124,13 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'csvOptionsCollapsed');
     $f->label = __('Page data options collapsed status');
     $f->showIf = "editModes=add|update|replace";
-    $f->columnWidth = 20;
+    $f->columnWidth = wire('input')->get->id ? 25 : 50;
     $f->description = __('Which page entry options do you want open vs collapsed.');
     $f->notes = __("Checked options will be open by default.");
     $f->addOption("paste","Text / Paste");
     $f->addOption("link","Link (URL)");
     $f->addOption("upload","Upload");
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
-    $wrapper->add($f);
-
-    $f = wire('modules')->get("InputfieldText");
-    $f->name = 'fieldSeparator';
-    $f->label = __('CSV fields separated with');
-    $f->showIf = "editModes=add|update|replace";
-    $f->notes = __('For tab separated, enter: tab');
-    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
-    $f->columnWidth = 20;
-    $wrapper->add($f);
-
-    $f = wire('modules')->get("InputfieldText");
-    $f->name = 'fieldEnclosure';
-    $f->label = __('CSV field enclosure');
-    $f->showIf = "editModes=add|update|replace";
-    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
-    $f->columnWidth = 20;
-    $wrapper->add($f);
-
-    $f = wire('modules')->get("InputfieldCheckbox");
-    $f->name = 'ignoreFirstRow';
-    $f->label = __('CSV ignore the first row');
-    $f->showIf = "editModes=add|update|replace";
-    $f->notes = __('Use this if the first row is field names');
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['ignoreFirstRow'] : $data['ignoreFirstRow']) ? 'checked' : '' );
-    $f->columnWidth = 20;
     $wrapper->add($f);
 
     //only for page context settings
@@ -1091,9 +1141,45 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
         $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n5:parentfield.subfield\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
+        $f->columnWidth = 50;
         $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
         $wrapper->add($f);
     }
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'fieldSeparator';
+    $f->label = __('CSV fields separated with');
+    $f->showIf = "editModes=add|update|replace";
+    $f->notes = __('For tab separated, enter: tab');
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
+    $f->columnWidth = 25;
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'fieldEnclosure';
+    $f->label = __('CSV field enclosure');
+    $f->showIf = "editModes=add|update|replace";
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
+    $f->columnWidth = 25;
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'ignoreFirstRow');
+    $f->label = __('CSV ignore the first row');
+    $f->description = __('Use this if the first row contains column/field labels.');
+    $f->showIf = "editModes=add|update|replace";
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['ignoreFirstRow'] : $data['ignoreFirstRow']) ? 'checked' : '' );
+    $f->columnWidth = 25;
+    $wrapper->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'allowOverrideCsvSettings');
+    $f->label = __('User override CSV settings');
+    $f->description = __('Allow user to override CSV separator, enclosure, and ignore first row settings.');
+    $f->showIf = "editModes=add|update|replace";
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideCsvSettings'] : $data['allowOverrideCsvSettings']) ? 'checked' : '' );
+    $f->columnWidth = 25;
+    $wrapper->add($f);
 
     $f = wire('modules')->get("InputfieldRadios");
     $f->attr('name', 'trashOrDelete');
