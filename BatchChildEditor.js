@@ -159,14 +159,14 @@ $(document).ready(function() {
         var initialUpdateText = $('textarea[name=childPagesUpdate]').val();
         var initialReplaceText = $('textarea[name=childPagesReplace]').val();
         if($(this).is(':checked')){
-            $('textarea[name=childPagesAdd]').val("Title\n" + initialAddText);
-            $('textarea[name=childPagesUpdate]').val("Title\n" + initialUpdateText);
-            $('textarea[name=childPagesReplace]').val("Title\n" + initialReplaceText);
+            if($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val("Title\n" + initialAddText);
+            if($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val("Title\n" + initialUpdateText);
+            if($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val("Title\n" + initialReplaceText);
         }
         else {
-            $('textarea[name=childPagesAdd]').val(removeFirstLine(initialAddText));
-            $('textarea[name=childPagesUpdate]').val(removeFirstLine(initialUpdateText));
-            $('textarea[name=childPagesReplace]').val(removeFirstLine(initialReplaceText));
+            if($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val(removeFirstLine(initialAddText));
+            if($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val(removeFirstLine(initialUpdateText));
+            if($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val(removeFirstLine(initialReplaceText));
         }
     });
 
