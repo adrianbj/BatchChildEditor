@@ -47,7 +47,7 @@ function childChildTableDialog() {
 
         // hide things we don't need in a modal context
         $icontents.find('#wrap_Inputfield_template, #wrap_template, #wrap_parent_id').hide();
-        $icontents.find('#breadcrumbs ul.nav, #_ProcessPageEditDelete, #_ProcessPageEditChildren').hide();
+        //$icontents.find('#breadcrumbs ul.nav, #_ProcessPageEditDelete, #_ProcessPageEditChildren').hide();
 
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
 
@@ -79,6 +79,7 @@ function childChildTableDialog() {
 
         if(buttons.length > 0) $dialog.dialog('option', 'buttons', buttons);
         $dialog.width(windowWidth).height(windowHeight);
+
     });
 
     return false;
@@ -152,4 +153,30 @@ $(document).ready(function() {
         }
     });
 
+    //Add or remove "Title" label from Text/Paste CSV textarea if user changes ignore first row setting
+     $('#Inputfield_userIgnoreFirstRow').change(function() {
+        var initialAddText = $('textarea[name=childPagesAdd]').val();
+        var initialUpdateText = $('textarea[name=childPagesUpdate]').val();
+        var initialReplaceText = $('textarea[name=childPagesReplace]').val();
+        if($(this).is(':checked')){
+            if($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val("Title\n" + initialAddText);
+            if($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val("Title\n" + initialUpdateText);
+            if($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val("Title\n" + initialReplaceText);
+        }
+        else {
+            if($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val(removeFirstLine(initialAddText));
+            if($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val(removeFirstLine(initialUpdateText));
+            if($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val(removeFirstLine(initialReplaceText));
+        }
+    });
+
 });
+
+function removeFirstLine(text) {
+    // break the textblock into an array of lines
+    var lines = text.split('\n');
+    // remove one line, starting at the first position
+    lines.splice(0,1);
+    // join the array back into a single string
+    return lines.join('\n');
+}

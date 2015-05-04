@@ -3,13 +3,14 @@ BatchChildEditor
 
 Processwire module for quick batch creation, editing, sorting, and deletion of all children under a given page.
 
-This module adds a new section at the bottom of the Children Tab when editing a page. You can choose to:
+This module adds a new section to the Children Tab or optionally creates a new dedicated when editing a page. You can choose to:
 
-1. Add - adds newly entered page titles as child pages to the list of existing siblings. You could create a list of pages in Word or whatever and just paste them in here and viola!
-2. Overwrite - Works similarly to Add, but overwrites all the existing children. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
-3. Edit - This allows you to rename existing child pages, add new child pages, sort, and delete pages. It is non-destructive and so could be used on child pages that have their own children or other content fields (not just title). It also has a modal edit link from the page name.
+1. Edit - Allows you to quidkly rename existing child pages, add new child pages, sort, and delete pages. It also has a modal edit link from the page name to allow easy access to edit all the fields on the page.
+2. Add - Adds newly entered page titles as child pages to the list of existing siblings. You could create a list of pages in Word or whatever and just paste them in here and viola!
+3. Update - This allows updating of existing pages - the title, name and all other fields.
+4. Replace - This completely replaces all existing child pages with new pages. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
 
-In both Add and Overwrite modes you can enter CSV formatted rows to populate all text/numeric fields as the new pages are created, making for an extremely quick way of creating new pages and populating their content fields.
+In Add, Update, and Replace modes you can enter CSV formatted rows to populate all text/numeric fields. This can be used to create new pages or to update existing pages. CSV field pairings can be defined to make it easy for editors to periodically create new pages, or update the fields in existing pages.
 
 
 ###Access permission
@@ -19,21 +20,20 @@ This module requires a new permission: "batch-child-editor". This permission is 
 
 ###Config Settings
 
-Which pages and templates will have the editor available.
+There are module-wide config settings, but these can be overwritten with page specific permissions which allows for highly customized creation and editing tools.
 
-Which edit modes should be availble to the user.
-
-Whether the name of the page should also be changed along with the title. This is a very important setting and should be considered carefully, especially is the child pages are URL accessible.
-
-Whether users can decide whether the name is also changed or not.
-
-Whether to disable content protection for existing child pages and their children.
-
-Trash or Delete.
-
-Load Batch interface Open or Collapsed (open for quicker access).
-
-Position interface at top or bottom of Children tab (top for quicker access).
+* Which pages and templates will have the editor available.
+* Which edit modes should be availble to the user.
+* Which data entry options (Text, Upload, URL link) should be availble to the user.
+* CSV format options
+* CSV field pairings - really powerful for creating and updating pages - read more about it in the config settings
+* Whether the name of the page should also be changed along with the title. This is a very important setting and should be considered carefully, especially is the child pages are URL accessible.
+* Whether users can decide whether the name is also changed or not.
+* Whether to disable content protection for existing child pages and their children.
+* Trash or Delete.
+* Load Batch interface Open or Collapsed (open for quicker access).
+* Position interface (top, bottom, replace, new tab).
+* Custom Title, Description, and Notes for each mode - allows you to tailor the editing interface specifically to your content editors and to specific content.
 
 
 ## License
