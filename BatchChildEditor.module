@@ -49,6 +49,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "enabledPages" => array(),
                 "configurablePages" => array(),
                 "editModes" => "edit",
+                "defaultMode" => "",
                 "overwriteNames" => "",
                 "allowOverrideOverwriteNames" => "",
                 "loadOpen" => "",
@@ -310,9 +311,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $fieldEnclosure = $currentData['fieldEnclosure'];
             $ignoreFirstRow = $currentData['ignoreFirstRow'];
 
-            $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
-            $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
-            $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
+            if($this->session->userFieldSeparator) $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
+            if($this->session->userFieldEnclosure) $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
+            if($this->session->userIgnoreFirstRow) $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
         }
 
         foreach($pp->children("include=all") as $cp) {
@@ -337,7 +338,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if($editMode == 'update' && $pp->children->count == 0) continue;
                 $f->addOption($editMode, ucfirst($editMode));
             }
-            $f->value = $this->session->edit_mode;
+            if($this->session->edit_mode) {
+                $f->value = $this->session->edit_mode;
+            }
+            else {
+                if($currentData['defaultMode']) $f->value = $currentData['defaultMode'];
+            }
             $childEditSet->add($f);
         }
         else{
@@ -579,6 +585,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     "<i style='cursor:move' class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
                     "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
                     "",
+                    "",
+                    "",
                     ""
                 );
                 $table->row($row);
@@ -591,7 +599,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $row = array(
                     "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
                     "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' />",
-                    '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#">'.$cp->name.'</a>',
+                    "{$cp->name}",
+                    '<a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>',
+                    '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#"><i style="cursor:pointer" class="fa fa-pencil"></i></a>',
                     "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>"
                 );
                 $table->row($row);
@@ -1078,7 +1088,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'editModes');
     $f->label = __('Edit modes');
     $f->required = true;
-    $f->columnWidth = 25;
+    $f->columnWidth = 20;
     $f->description = __('Which edit modes you want available. If more than one checked, then the user can decide.');
     $f->addOption("edit","Edit");
     $f->addOption("add","Add");
@@ -1088,12 +1098,25 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->notes = __("The Edit and Add modes are safer than the Update and Replace modes, because they are non-destructive.\n\nUpdate will edit the content of fields of existing pages. Replace will delete all child pages and create new ones.");
     $fieldset->add($f);
 
+    $f = wire('modules')->get("InputfieldRadios");
+    $f->attr('name', 'defaultMode');
+    $f->label = __('Default Mode');
+    $f->columnWidth = 20;
+    $f->showIf = "editModes.count>1";
+    $f->description = __('If more than one mode available to user, which one should be open by default.');
+    $f->addOption("","None");
+    $f->addOption("edit","Edit");
+    $f->addOption("add","Add");
+    $f->addOption("update","Update");
+    $f->addOption("replace","Replace");
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['defaultMode'] : $data['defaultMode'];
+    $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'overwriteNames');
     $f->label = __('Overwrite names');
     $f->showIf = "editModes=edit|update";
-    $f->columnWidth = 25;
+    $f->columnWidth = 20;
     $f->description = __('Whether to overwrite the name of the page, and not just the title.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['overwriteNames'] : $data['overwriteNames']) ? 'checked' : '' );
     $f->notes = __("Only relevant for Edit and Update modes. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
@@ -1103,7 +1126,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'allowOverrideOverwriteNames');
     $f->label = __('Allow user to change "Overwrite Names" setting');
     $f->showIf = "editModes=edit|update";
-    $f->columnWidth = 25;
+    $f->columnWidth = 20;
     $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideOverwriteNames'] : $data['allowOverrideOverwriteNames']) ? 'checked' : '' );
     $f->notes = __("Only relevant for Edit and Update modes.");
@@ -1113,7 +1136,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'disableContentProtection');
     $f->label = __('Disable content protection');
     $f->showIf = "editModes=replace|edit";
-    $f->columnWidth = 25;
+    $f->columnWidth = 20;
     $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
     $f->notes = __("This can be extremely destructive, use with extreme caution!");
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
