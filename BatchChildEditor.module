@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 65,
+            'version' => 67,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -603,11 +603,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
             foreach ($pp->children("include=all") as $cp) {
 
-                if (!$cp->editable() || $cp->is(Page::statusSystemID)) continue; //Only display if current user can edit and also if it is not a system page (404, admin, trash etc)
+                if ($cp->is(Page::statusSystemID)) continue; //Don't display if it is a system page (404, admin, trash etc)
 
                 $row = array(
-                    "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
-                    "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' />",
+                    $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
+                    "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' ". (!$cp->editable() ? " readonly" : "") . " />",
                     '<span style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$cp->name.'</span>',
                     '<a href="'.$this->config->urls->admin.'setup/template/edit?id='.$cp->template->id.'">'. ($cp->template->label ? $cp->template->label : $cp->template->name) . '</a>',
                     $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
@@ -620,12 +620,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             $hiddenInfo = "<input name='idsToDelete' class='InputfieldChildTableRowDelete' type='hidden' value='' />";
 
-            $button = $this->wire('modules')->get('InputfieldButton');
-            $button->icon = 'plus-circle';
-            $button->value = $this->_x('Add New', 'button');
-            $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldChildTableAddRow');
+            if($pp->addable()) {
+                $button = $this->wire('modules')->get('InputfieldButton');
+                $button->icon = 'plus-circle';
+                $button->value = $this->_x('Add New', 'button');
+                $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldChildTableAddRow');
+            }
 
-            $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . $button->render());
+            $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . ($pp->addable() ? $button->render() : ''));
             $childEditSet->append($results);
         }
         return $childEditSet;
