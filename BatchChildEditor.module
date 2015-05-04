@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 67,
+            'version' => 68,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -336,6 +336,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->columnWidth = 33;
             foreach($currentData['editModes'] as $editMode){
                 if($editMode == 'update' && $pp->children->count == 0) continue;
+                //check users add rights for add and replace mode
+                if(($editMode == 'add' || $editMode == 'replace') && !$pp->addable()) continue;
                 $f->addOption($editMode, ucfirst($editMode));
             }
             if($this->session->edit_mode) {
@@ -939,6 +941,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                                 }
                                 // for new pages added at the end when using Update mode
                                 else {
+                                    if(!$pp->addable()) continue; //update mode is available to users without add permission, but they shouldn't be able to add new pages at the end
                                     $np = new Page();
                                     $np->parent = $pp;
                                     $np->template = $childTemplate;
