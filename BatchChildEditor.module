@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 69,
+            'version' => 70,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -614,7 +614,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     ($this->user->isSuperuser() ? '<a href="'.$this->config->urls->admin.'setup/template/edit?id='.$cp->template->id.'">' : '') . ($cp->template->label ? $cp->template->label : $cp->template->name) . ($this->user->isSuperuser() ? '</a>' : ''),
                     $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
                     $cp->editable() ? '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#"><i style="cursor:pointer" class="fa fa-pencil"></i></a>' : '',
-                    "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>"
+                    $cp->trashable() ? "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>" : ""
                 );
                 $table->row($row);
                 $rowNum++;
@@ -736,7 +736,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         }
                     }
 
-                    if($id!='') {
+                    if($id!='' && $ptod->trashable()) {
                         $currentData['trashOrDelete'] == 'delete' ? $this->pages->delete($ptod, true) : $this->pages->trash($ptod);
                     }
                 }
@@ -868,7 +868,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             //if first loop and replace mode then now it's safe to delete all existing child pages because above checks for field pairings have passed
             if(($x==1 || ($x==2 && $currentData['ignoreFirstRow'])) && $this->input->post->edit_mode == "replace") {
                 foreach($pp->children("include=all") as $cp) {
-                    if(!$cp->is(Page::statusSystemID)) {
+                    if(!$cp->is(Page::statusSystemID) && $cp->trashable()) {
                         $currentData['trashOrDelete'] == 'delete' ? $this->pages->delete($cp, true) : $this->pages->trash($cp);
                     }
                 }
