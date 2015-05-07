@@ -65,7 +65,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "tabName" => "Batch Child Editor",
                 "disableContentProtection" => "",
                 "editModeTitle" => "Edit Child Pages",
-                "editModeDescription" => "You can edit the page titles, sort, delete, add new, or edit pages in a modal popup (via the page name link).",
+                "editModeDescription" => "You can edit the page titles, sort, delete, add new, or edit pages in a modal popup.",
                 "editModeNotes" => "",
                 "addModeTitle" => "Add Child Pages",
                 "addModeDescription" => "Editing this field will add all the child page titles listed here to the existing set of child pages.",
