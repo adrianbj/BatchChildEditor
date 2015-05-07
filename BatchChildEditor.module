@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 70,
+            'version' => 71,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -608,7 +608,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if ($cp->is(Page::statusSystemID)) continue; //Don't display if it is a system page (404, admin, trash etc)
 
                 $row = array(
-                    $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
+                    $pp->sortfield == 'sort' && $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
                     "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' ". (!$cp->editable() ? " readonly" : "") . " />",
                     '<span style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$cp->name.'</span>',
                     ($this->user->isSuperuser() ? '<a href="'.$this->config->urls->admin.'setup/template/edit?id='.$cp->template->id.'">' : '') . ($cp->template->label ? $cp->template->label : $cp->template->name) . ($this->user->isSuperuser() ? '</a>' : ''),
