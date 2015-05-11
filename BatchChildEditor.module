@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 71,
+            'version' => 72,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1019,7 +1019,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledPages->label = __('Enabled pages', __FILE__);
         $fieldEnabledPages->columnWidth = 34;
         $fieldEnabledPages->description = __("The batch editing option will only be available for the selected pages.\nNB Leave blank to allow all pages.", __FILE__);
-        $fieldEnabledPages->attr('title', __('Enable page', __FILE__));
         if(isset($data['enabledPages'])) $fieldEnabledPages->value = $data['enabledPages'];
         $fieldset->add($fieldEnabledPages);
 
@@ -1028,7 +1027,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldConfigurablePages->label = __('Configurable pages', __FILE__);
         $fieldConfigurablePages->columnWidth = 33;
         $fieldConfigurablePages->description = __("Selected pages will have their own config settings for Batch Child Editor - these will be added to the page's Settings tab. All other pages will use the config settings below.", __FILE__);
-        $fieldConfigurablePages->attr('title', __('Enable page', __FILE__));
         if(isset($data['configurablePages'])) $fieldConfigurablePages->value = $data['configurablePages'];
         $fieldset->add($fieldConfigurablePages);
 
