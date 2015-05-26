@@ -9,7 +9,7 @@ This module adds a new section to the Children Tab or optionally creates a new d
 2. Add - Adds newly entered page titles as child pages to the list of existing siblings. You could create a list of pages in Word or whatever and just paste them in here and viola!
 3. Update - This allows updating of existing pages - the title, name and all other fields.
 4. Replace - This completely replaces all existing child pages with new pages. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
-5. Export to CSV - Generates a CSV file containing the fields for all child pages. Fields to be exported can be fixed or customizable by the user. Also includes an API export method.
+5. Export to CSV - Generates a CSV file containing the fields for all child pages. Fields to be exported can be fixed or customized by the user. Also includes an API export method.
 
 In Add, Update, and Replace modes you can enter CSV formatted rows to populate all text/numeric fields. This can be used to create new pages or to update existing pages. CSV field pairings can be defined to make it easy for editors to periodically create new pages, or update the fields in existing pages.
 
