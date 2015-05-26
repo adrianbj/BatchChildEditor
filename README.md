@@ -1,7 +1,7 @@
 BatchChildEditor
 ================
 
-Processwire module for quick batch creation, editing, sorting, and deletion of all children under a given page.
+Processwire module for quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.
 
 This module adds a new section to the Children Tab or optionally creates a new dedicated when editing a page. You can choose to:
 
@@ -9,6 +9,7 @@ This module adds a new section to the Children Tab or optionally creates a new d
 2. Add - Adds newly entered page titles as child pages to the list of existing siblings. You could create a list of pages in Word or whatever and just paste them in here and viola!
 3. Update - This allows updating of existing pages - the title, name and all other fields.
 4. Replace - This completely replaces all existing child pages with new pages. There are checks that prevent this method working if there are any child pages with their own children or other content fields that are not empty. This check can be disabled in the module config settings, but please be very careful with this.
+5. Export to CSV - Generates a CSV file containing the fields for all child pages. Fields to be exported can to fixed or customizable by the user. Also includes an API export method.
 
 In Add, Update, and Replace modes you can enter CSV formatted rows to populate all text/numeric fields. This can be used to create new pages or to update existing pages. CSV field pairings can be defined to make it easy for editors to periodically create new pages, or update the fields in existing pages.
 
@@ -25,8 +26,9 @@ There are module-wide config settings, but these can be overwritten with page sp
 * Which pages and templates will have the editor available.
 * Which edit modes should be availble to the user.
 * Which data entry options (Text, Upload, URL link) should be availble to the user.
-* CSV format options
+* CSV import options
 * CSV field pairings - really powerful for creating and updating pages - read more about it in the config settings
+* CSV export options
 * Whether the name of the page should also be changed along with the title. This is a very important setting and should be considered carefully, especially is the child pages are URL accessible.
 * Whether users can decide whether the name is also changed or not.
 * Whether to disable content protection for existing child pages and their children.
