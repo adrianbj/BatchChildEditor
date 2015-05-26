@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 72,
+            'version' => 73,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -38,13 +38,29 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     protected $data = array();
     protected $childPages = '';
 
-
    /**
      * Default configuration for module
      *
      */
     static public function getDefaultData() {
             return array(
+                "systemFields" => array(
+                    'id' => __('ID'),
+                    'name' => __('Name (from URL)'),
+                    'path' => __('Path'),
+                    'url' => __('URL'),
+                    'status' => __('Status'),
+                    'created' => __('Date Created'),
+                    'modified' => __('Date Last Modified'),
+                    'createdUser.id' => __('Created by User: ID'),
+                    'createdUser.name' => __('Created by User: Name'),
+                    'modifiedUser.id' => __('Modified by User: ID'),
+                    'modifiedUser.name' => __('Modified by User: Name'),
+                    'parent_id' => __('Parent Page ID'),
+                    'parent.name' => __('Parent Page Name'),
+                    'template.id' => __('Template ID'),
+                    'template' => __('Template Name')
+                ),
                 "enabledTemplates" => array(),
                 "enabledPages" => array(),
                 "configurablePages" => array(),
@@ -55,10 +71,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "loadOpen" => "",
                 "csvOptions" => array(),
                 "csvOptionsCollapsed" => array(),
-                "fieldSeparator" => ",",
-                "fieldEnclosure" => '"',
+                "csvImportFieldSeparator" => ",",
+                "csvImportFieldEnclosure" => '"',
+                "multipleValuesSeparator" => "|",
                 "ignoreFirstRow" => "",
-                "allowOverrideCsvSettings" => "",
+                "exportFields" => "",
+                "csvExportFieldSeparator" => ",",
+                "csvExportFieldEnclosure" => '"',
+                "csvExportExtension" => 'csv',
+                "columnsFirstRow" => "",
+                "allowOverrideCsvImportSettings" => "",
+                "allowOverrideCsvExportSettings" => "",
                 "fieldPairings" => "",
                 "trashOrDelete" => "trash",
                 "position" => "bottom",
@@ -76,6 +99,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "replaceModeTitle" => "Replace Child Pages",
                 "replaceModeDescription" => "Editing this field will replace all the child page titles represented here.",
                 "replaceModeNotes" => "WARNING: If you use this option, all the existing child pages (and grandchildren) will be deleted and new ones created.\n\nEach row is a separate page.\n\nYou can also use CSV formatted lines for populating all text/numeric fields on the page, eg:\n\"Bolivia, Plurinational State of\",BO,\"BOLIVIA, PLURINATIONAL STATE OF\",BOL,68",
+                "exportModeTitle" => "Export Child Pages",
+                "exportModeDescription" => "Creates a CSV file with one row for each child page.",
+                "exportModeNotes" => "",
                 "pageSettings" => array(),
             );
     }
@@ -112,7 +138,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if(!$id) return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = isset($this->data['pageSettings'][$id]) && $this->data['pageSettings'][$id] ? $this->data['pageSettings'][$id] : $this->data;
+        $currentData = in_array($id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$id]) && $this->data['pageSettings'][$id] ? $this->data['pageSettings'][$id] : $this->data;
 
         // GET parameter id tells the page that's being edited
         $this->editedPage = wire('pages')->get($id);
@@ -177,7 +203,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 // maybe we want to make this optional at some point in case template doesn't actually have/require a title field
                 if(!in_array('title', $convertedFieldPairings)) {
                     if(in_array('add', $this->data['pageSettings'][$pp->id]['editModes']) || in_array('replace', $this->data['pageSettings'][$pp->id]['editModes'])) {
-                        $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings, unless the only available edit modes are \"Edit\" and \"Update\"."));
+                        $this->error($this->_("You must include a \"title\" field in the CSV Field Pairings, unless the only available modes are \"Edit\" and \"Update\"."));
                     }
                 }
 
@@ -224,7 +250,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         foreach(self::getDefaultData() as $key => $value) {
             $options[$key] = $this->input->post->$key;
         }
-
         $this->saveSettings($options);
     }
 
@@ -247,7 +272,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
         $childEditSet = $this->createChildEditSet($pp, $form);
 
@@ -268,7 +293,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
         //build the content of the tab
         $childEditSet = $this->createChildEditSet($pp, $form);
@@ -302,17 +327,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public function createChildEditSet($pp, $form) {
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
         //get user CSV setting overrides if allowed
-        if($currentData['allowOverrideCsvSettings']) {
+        if(isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings']) {
 
-            $fieldSeparator = $currentData['fieldSeparator'];
-            $fieldEnclosure = $currentData['fieldEnclosure'];
+            $fieldSeparator = $currentData['csvImportFieldSeparator'];
+            $fieldEnclosure = $currentData['csvImportFieldEnclosure'];
             $ignoreFirstRow = $currentData['ignoreFirstRow'];
 
-            if($this->session->userFieldSeparator) $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
-            if($this->session->userFieldEnclosure) $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
+            if($this->session->userFieldSeparator) $currentData['csvImportFieldSeparator'] = $this->session->userFieldSeparator;
+            if($this->session->userFieldEnclosure) $currentData['csvImportFieldEnclosure'] = $this->session->userFieldEnclosure;
             if($this->session->userIgnoreFirstRow) $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
         }
 
@@ -327,12 +352,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet->attr('name', 'child_batch_editor');
         $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $childEditSet->label = __('Batch Editor / Creator');
 
-
         if(count($currentData['editModes'])>1){
             $f = $this->modules->get("InputfieldRadios");
             $f->attr('name', 'edit_mode');
-            $f->label = __('Edit Mode');
-            if(!$currentData['allowOverrideOverwriteNames']) $f->optionColumns = 1;
+            $f->label = __('Mode');
+            if(!$currentData['allowOverrideOverwriteNames'] && (is_array($pp->template->childTemplates) && count($pp->template->childTemplates)==1)) $f->optionColumns = 1;
             $f->columnWidth = 33;
             foreach($currentData['editModes'] as $editMode){
                 if($editMode == 'update' && $pp->children->count == 0) continue;
@@ -359,7 +383,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f = $this->modules->get("InputfieldSelect");
             $f->required = true;
             $f->name = "childTemplate";
-            $f->showIf = "edit_mode.count>0";
+            $f->showIf = "edit_mode.count>0, edit_mode!=export";
             $f->label = __('Child Template');
             $f->columnWidth = 34;
             $f->description = __('Choose the template for new children');
@@ -391,29 +415,29 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
 
         // User CSV Import Settings
-        if($currentData['allowOverrideCsvSettings'] && (in_array('add', $currentData['editModes']) || in_array('update', $currentData['editModes']) || in_array('replace', $currentData['editModes']))) {
+        if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings']) && (in_array('add', $currentData['editModes']) || in_array('update', $currentData['editModes']) || in_array('replace', $currentData['editModes']))) {
 
             $csvSettingsFieldset = $this->modules->get("InputfieldFieldset");
             $csvSettingsFieldset->label = __("CSV Import Settings");
             $csvSettingsFieldset->showIf = "edit_mode=add|update|replace";
             //if all CSV settings are the same as defaults (page or module level), then collapse
-            if($fieldSeparator == $currentData['fieldSeparator'] && $fieldEnclosure == $currentData['fieldEnclosure'] && $ignoreFirstRow == $currentData['ignoreFirstRow']) $csvSettingsFieldset->collapsed = Inputfield::collapsedYes;
+            if($fieldSeparator == $currentData['csvImportFieldSeparator'] && $fieldEnclosure == $currentData['csvImportFieldEnclosure'] && $ignoreFirstRow == $currentData['ignoreFirstRow']) $csvSettingsFieldset->collapsed = Inputfield::collapsedYes;
             $childEditSet->add($csvSettingsFieldset);
 
             $f = wire('modules')->get("InputfieldText");
-            $f->name = 'userFieldSeparator';
+            $f->name = 'userCsvImportFieldSeparator';
             $f->label = __('CSV fields separated with');
             $f->showIf = "edit_mode=add|update|replace";
             $f->notes = __('For tab separated, enter: tab');
-            $f->value = $this->session->userFieldSeparator ? $this->session->userFieldSeparator : $currentData['fieldSeparator'];
+            $f->value = $this->session->userCsvImportFieldSeparator ? $this->session->userCsvImportFieldSeparator : $currentData['csvImportFieldSeparator'];
             $f->columnWidth = 33;
             $csvSettingsFieldset->append($f);
 
             $f = wire('modules')->get("InputfieldText");
-            $f->name = 'userFieldEnclosure';
+            $f->name = 'userCsvImportFieldEnclosure';
             $f->label = __('CSV field enclosure');
             $f->showIf = "edit_mode=add|update|replace";
-            $f->value = $this->session->userFieldEnclosure ? $this->session->userFieldEnclosure : $currentData['fieldEnclosure'];
+            $f->value = $this->session->userCsvImportFieldEnclosure ? $this->session->userCsvImportFieldEnclosure : $currentData['csvImportFieldEnclosure'];
             $f->columnWidth = 34;
             $csvSettingsFieldset->append($f);
 
@@ -424,7 +448,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode=add|update|replace";
             //using $this->session->userFieldSeparator in the ternary conditional because when $this->session->userIgnoreFirstRow is not "1", it doesn't seem to exist, even with isset!
             //this is fine, because once page has been saved, with any of these overrides, we have values for all in the session variable
-            $f->attr('checked', ($this->session->userFieldSeparator ? $this->session->userIgnoreFirstRow : $currentData['ignoreFirstRow']) ? 'checked' : '' );
+            $f->attr('checked', ($this->session->userCsvImportFieldSeparator ? $this->session->userIgnoreFirstRow : $currentData['ignoreFirstRow']) ? 'checked' : '' );
             $f->columnWidth = 33;
             $csvSettingsFieldset->append($f);
         }
@@ -632,13 +656,148 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . ($pp->addable() ? $button->render() : ''));
             $childEditSet->append($results);
         }
+
+
+        // Export
+        if(in_array('export', $currentData['editModes'])) {
+
+            $exportFieldset = $this->modules->get("InputfieldFieldset");
+            $exportFieldset->label = $currentData['exportModeTitle'];
+            $exportFieldset->description = $currentData['exportModeDescription'];
+            $exportFieldset->notes = $currentData['exportModeNotes'];
+            $exportFieldset->showIf = "edit_mode=export";
+            $childEditSet->add($exportFieldset);
+
+            $allFields = array();
+            foreach($pp->children as $child) {
+                foreach($child->fields as $cf) {
+                    if(!in_array($cf, $allFields)) $allFields[] = $cf;
+                }
+            }
+
+            if($currentData['allowOverrideCsvExportSettings']) {
+
+                if(isset($this->data['pageSettings'][$pp->id])) {
+                    $f = wire('modules')->get("InputfieldAsmSelect");
+                    $f->name = "userExportFields";
+                    $f->showIf = "edit_mode=export";
+                    $f->label = __('Fields to export');
+                    $f->description = __('Choose and sort the fields to include in the CSV export');
+
+                    //system field labels
+                    foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
+                        $fieldLabels[$systemField] = $systemFieldLabel;
+                    }
+
+                    //custom template field labels for all child pages
+                    foreach($allFields as $pf) {
+                        $fieldLabels[$pf->name] = $pf->label ? $pf->label : $pf->name;
+                    }
+
+                    //populate user override export field list from the page's Settings tab
+                    $populatedFields = array();
+                    foreach($this->data['pageSettings'][$pp->id]['exportFields'] as $exportField) {
+                        $populatedFields[] = $exportField;
+                        $f->addOption($exportField, $fieldLabels[$exportField]);
+                        $f->value = $exportField;
+                    }
+
+                    //all other fields not already populated
+                    //system fields
+                    foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
+                        if(!in_array($systemField, $populatedFields)) $f->addOption($systemField, $systemFieldLabel);
+                    }
+                    $allFields = array();
+                    foreach(wire('pages')->get(wire('input')->get->id)->children as $child) {
+                        foreach($child->fields as $cf) {
+                            if(!in_array($cf, $allFields)) $allFields[] = $cf;
+                        }
+                    }
+
+                    //custom template fields for all child pages
+                    foreach($allFields as $pf) {
+                        if(!in_array($pf->name, $populatedFields)) $f->addOption($pf->name, $pf->label ? $pf->label : $pf->name);
+                    }
+
+                    $exportFieldset->add($f);
+                }
+
+                $f = $this->modules->get("InputfieldText");
+                $f->name = 'export_column_separator';
+                $f->label = __('Columns separated with');
+                $f->notes = __('For tab separated, enter: tab');
+                $f->value = $currentData['csvExportFieldSeparator'];
+                $f->columnWidth = 20;
+                $exportFieldset->add($f);
+
+                $f = $this->modules->get("InputfieldText");
+                $f->name = 'export_column_enclosure';
+                $f->label = __('Column enclosure');
+                $f->value = $currentData['csvExportFieldEnclosure'];
+                $f->columnWidth = 20;
+                $exportFieldset->add($f);
+
+                $f = $this->modules->get("InputfieldText");
+                $f->name = 'export_extension';
+                $f->label = __('File extension');
+                $f->value = $currentData['csvExportExtension'];
+                $f->columnWidth = 20;
+                $exportFieldset->add($f);
+
+                $f = wire('modules')->get("InputfieldText");
+                $f->attr('name', 'multiple_values_separator');
+                $f->label = __('Multiple values separator');
+                $f->description = __('Separator for multiple values like Page fields, files/images, multiplier, etc.');
+                $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
+                $f->value = $currentData['multipleValuesSeparator'];
+                $f->columnWidth = 20;
+                $exportFieldset->add($f);
+
+                $f = $this->modules->get("InputfieldCheckbox");
+                $f->name = 'export_names_first_row';
+                $f->label = __('Column labels');
+                $f->label2 = 'Put column names in the first row';
+                $f->attr('checked', $currentData['columnsFirstRow'] ? 'checked' : '' );
+                $f->columnWidth = 20;
+                $exportFieldset->add($f);
+            }
+            //if there is no user override then populate hidden so .js file can get these value and pass them to the Process helper module
+            else {
+                $f = $this->modules->get("InputfieldMarkup");
+                $f->attr('name', 'csv_settings');
+                $exportFields = $currentData['exportFields'] ? implode(',', $currentData['exportFields']) : implode(',', $allFields);
+                $f->value = "
+                <input id='Inputfield_exportFields' type='hidden' value='{$exportFields}' />
+                <input id='Inputfield_export_column_separator' type='hidden' value='{$currentData['csvExportFieldSeparator']}' />
+                <input id='Inputfield_export_column_enclosure' type='hidden' value='{$currentData['csvExportFieldEnclosure']}' />
+                <input id='Inputfield_export_extension' type='hidden' value='{$currentData['csvExportExtension']}' />
+                <input id='Inputfield_multiple_values_separator' type='hidden' value='{$currentData['multipleValuesSeparator']}' />
+                <input id='Inputfield_export_names_first_row' type='hidden' value='{$currentData['columnsFirstRow']}' />
+                ";
+                $exportFieldset->add($f);
+            }
+
+            $f = $this->modules->get("InputfieldButton");
+            $f->name = 'export_button';
+            $f->value = $this->_x('Export as CSV', 'button');
+            $f->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default children_export_csv');
+            $f->attr('data-pageid', (int) $this->input->id);
+            $exportFieldset->add($f);
+
+            $f = $this->modules->get("InputfieldMarkup");
+            $f->attr('name', 'iframe');
+            $f->value = "<iframe id='download' src=''></iframe>";
+            $exportFieldset->add($f);
+
+        }
+
         return $childEditSet;
     }
 
 
     public function saveChildren(HookEvent $event){
 
-        // early exit if no edit mode has been selected
+        // early exit if no mode has been selected
         if(!$this->input->post->edit_mode) return;
 
         $this->session->edit_mode = $this->input->post->edit_mode;
@@ -651,10 +810,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $pp = $event->object->getPage();
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
         //get user CSV setting overrides if allowed
-        if($currentData['allowOverrideCsvSettings']) {
+        if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
             $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
             $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
             $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
@@ -822,10 +981,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childPagesArray = explode("\n",$childPages);
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
         //get user CSV setting overrides if allowed
-        if($currentData['allowOverrideCsvSettings']) {
+        if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
             $currentData['fieldSeparator'] = $this->session->userFieldSeparator = $this->input->post->userFieldSeparator;
             $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure = $this->input->post->userFieldEnclosure;
             $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow = $this->input->post->userIgnoreFirstRow;
@@ -1099,14 +1258,15 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldCheckboxes");
     $f->attr('name', 'editModes');
-    $f->label = __('Edit modes');
+    $f->label = __('Modes');
     $f->required = true;
     $f->columnWidth = 20;
-    $f->description = __('Which edit modes you want available. If more than one checked, then the user can decide.');
+    $f->description = __('Which modes you want available. If more than one checked, then the user can decide.');
     $f->addOption("edit","Edit");
     $f->addOption("add","Add");
     $f->addOption("update","Update");
     $f->addOption("replace","Replace");
+    $f->addOption("export","Export CSV");
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['editModes'] : $data['editModes'];
     $f->notes = __("The Edit and Add modes are safer than the Update and Replace modes, because they are non-destructive.\n\nUpdate will edit the content of fields of existing pages. Replace will delete all child pages and create new ones.");
     $fieldset->add($f);
@@ -1122,6 +1282,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->addOption("add","Add");
     $f->addOption("update","Update");
     $f->addOption("replace","Replace");
+    $f->addOption("export","Export CSV");
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['defaultMode'] : $data['defaultMode'];
     $fieldset->add($f);
 
@@ -1157,7 +1318,8 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $fieldset = wire('modules')->get("InputfieldFieldset");
     $fieldset->attr('id', 'batch_child_editor_data_entry_fieldset');
-    $fieldset->label = __("Data entry / CSV settings");
+    $fieldset->label = __("Data entry / CSV import settings");
+    $fieldset->showIf = "editModes=add|update|replace";
     $fieldset->collapsed = Inputfield::collapsedYes;
     $wrapper->add($fieldset);
 
@@ -1189,13 +1351,13 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
     $fieldset->add($f);
 
-    //only for page context settings
+    //only for page context settings, NOT module config settings
     if(wire('input')->get->id) {
         $f = wire('modules')->get("InputfieldTextarea");
         $f->name = 'fieldPairings';
         $f->label = __('CSV field pairings');
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
-        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n5:parentfield.subfield\n\nNB Unless the only edit modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
+        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n5:parentfield.subfield\n\nNB Unless the only modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
         $f->columnWidth = 50;
         $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
@@ -1203,19 +1365,19 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     }
 
     $f = wire('modules')->get("InputfieldText");
-    $f->name = 'fieldSeparator';
+    $f->name = 'csvImportFieldSeparator';
     $f->label = __('CSV fields separated with');
     $f->showIf = "editModes=add|update|replace";
     $f->notes = __('For tab separated, enter: tab');
-    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldSeparator'] : $data['fieldSeparator'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvImportFieldSeparator'] : $data['csvImportFieldSeparator'];
     $f->columnWidth = 25;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldText");
-    $f->name = 'fieldEnclosure';
+    $f->name = 'csvImportFieldEnclosure';
     $f->label = __('CSV field enclosure');
     $f->showIf = "editModes=add|update|replace";
-    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldEnclosure'] : $data['fieldEnclosure'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvImportFieldEnclosure'] : $data['csvImportFieldEnclosure'];
     $f->columnWidth = 25;
     $fieldset->add($f);
 
@@ -1229,12 +1391,100 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");
-    $f->attr('name', 'allowOverrideCsvSettings');
+    $f->attr('name', 'allowOverrideCsvImportSettings');
     $f->label = __('User override CSV settings');
     $f->description = __('Allow user to override CSV separator, enclosure, and ignore first row settings.');
     $f->showIf = "editModes=add|update|replace";
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideCsvSettings'] : $data['allowOverrideCsvSettings']) ? 'checked' : '' );
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideCsvImportSettings'] : $data['allowOverrideCsvImportSettings']) ? 'checked' : '' );
     $f->columnWidth = 25;
+    $fieldset->add($f);
+
+    $fieldset = wire('modules')->get("InputfieldFieldset");
+    $fieldset->attr('id', 'batch_child_editor_csv_export_fieldset');
+    $fieldset->label = __('CSV export settings');
+    $fieldset->description = __('If you want to specify the fields to export, you need to define them separately for each parent page by setting the Configurable pages first. All these settings can also be overriden on a page specific basis.');
+    $fieldset->showIf = "editModes=export";
+    $fieldset->collapsed = Inputfield::collapsedYes;
+    $wrapper->add($fieldset);
+
+    //only for page context settings, NOT module config settings
+    if(wire('input')->get->id) {
+        $f = wire('modules')->get("InputfieldAsmSelect");
+        $f->name = "exportFields";
+        $f->showIf = "editModes=export";
+        $f->label = __('Fields to export');
+        $f->description = __('Choose and sort the fields to include in the CSV export');
+
+        //system fields
+        foreach($data['systemFields'] as $systemField => $systemFieldLabel) {
+            $f->addOption($systemField, $systemFieldLabel);
+        }
+        $allFields = array();
+        foreach(wire('pages')->get(wire('input')->get->id)->children as $child) {
+            foreach($child->fields as $cf) {
+                if(!in_array($cf, $allFields)) $allFields[] = $cf;
+            }
+        }
+
+        //custom template fields for all child pages
+        foreach($allFields as $pf) {
+            $f->addOption($pf->name, $pf->label ? $pf->label : $pf->name);
+            $f->value = $pf->name;
+        }
+        $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['exportFields'] : '';
+        $fieldset->add($f);
+    }
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'csvExportFieldSeparator';
+    $f->label = __('CSV fields separated with');
+    $f->showIf = "editModes=export";
+    $f->notes = __('For tab separated, enter: tab');
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvExportFieldSeparator'] : $data['csvExportFieldSeparator'];
+    $f->columnWidth = 20;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'csvExportFieldEnclosure';
+    $f->label = __('CSV field enclosure');
+    $f->showIf = "editModes=export";
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvExportFieldEnclosure'] : $data['csvExportFieldEnclosure'];
+    $f->columnWidth = 20;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->name = 'csvExportExtension';
+    $f->label = __('File extension');
+    $f->showIf = "editModes=export";
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvExportExtension'] : $data['csvExportExtension'];
+    $f->columnWidth = 20;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'columnsFirstRow');
+    $f->label = __('Column labels');
+    $f->label2 = __('Put column names in the first row');
+    $f->showIf = "editModes=export";
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['columnsFirstRow'] : $data['columnsFirstRow']) ? 'checked' : '' );
+    $f->columnWidth = 20;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'multipleValuesSeparator');
+    $f->label = __('Multiple values separator');
+    $f->description = __('Separator for multiple values like Page fields, files/images, multiplier, etc.');
+    $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
+    $f->showIf = "editModes=export";
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['multipleValuesSeparator'] : $data['multipleValuesSeparator'];
+    $f->columnWidth = 20;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'allowOverrideCsvExportSettings');
+    $f->label = __('User override CSV settings');
+    $f->description = __('Allow user to override Fields to export, CSV separator, enclosure, and column labels in first row settings.');
+    $f->showIf = "editModes=export";
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideCsvExportSettings'] : $data['allowOverrideCsvExportSettings']) ? 'checked' : '' );
     $fieldset->add($f);
 
     $fieldset = wire('modules')->get("InputfieldFieldset");
@@ -1398,4 +1648,32 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->description = __('Custom text for notes in Replace mode.');
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['replaceModeNotes'] : $data['replaceModeNotes'];
     $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'exportModeTitle');
+    $f->label = __('Export mode title');
+    $f->showIf = "editModes=export";
+    $f->columnWidth = 33;
+    $f->description = __('Custom title for Export mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['exportModeTitle'] : $data['exportModeTitle'];
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'exportModeDescription');
+    $f->label = __('Export mode description');
+    $f->showIf = "editModes=export";
+    $f->columnWidth = 34;
+    $f->description = __('Custom text for description in Export mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['exportModeDescription'] : $data['exportModeDescription'];
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldTextarea");
+    $f->attr('name', 'exportModeNotes');
+    $f->label = __('Export mode notes');
+    $f->showIf = "editModes=export";
+    $f->columnWidth = 33;
+    $f->description = __('Custom text for notes in Export mode.');
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['exportModeNotes'] : $data['exportModeNotes'];
+    $fieldset->add($f);
+
 }

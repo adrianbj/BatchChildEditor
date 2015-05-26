@@ -96,6 +96,25 @@ function childChildTableSortable($table) {
 
 $(document).ready(function() {
 
+    //csv export
+    $('.Inputfield_iframe').hide();
+    $('.Inputfield_csv_settings').hide();
+    $(document).on('click', '.children_export_csv', function(){
+        $('#download').attr('src', config.urls.admin+
+            "setup/children-csv-export/?pid="+
+            $(this).attr('data-pageid')+
+            "&fns="+($("#Inputfield_userExportFields").val() ? $("#Inputfield_userExportFields").val() : $("#Inputfield_exportFields").val())+
+            "&cs="+$("#Inputfield_export_column_separator").val()+
+            "&ce="+$("#Inputfield_export_column_enclosure").val()+
+            "&ext="+$("#Inputfield_export_extension").val()+
+            "&nfr="+($("#Inputfield_export_names_first_row").is(':checkbox') ? $("#Inputfield_export_names_first_row").attr('checked') : $("#Inputfield_export_names_first_row").val())+
+            "&mvs="+$("#Inputfield_multiple_values_separator").val()
+        );
+        return false;
+    });
+
+
+
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
 
     var i=0;
