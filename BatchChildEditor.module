@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 80,
+            'version' => 81,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -615,7 +615,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $table->setEncodeEntities(false);
 
             //Build the table
-            $possibleTemplates = $pp->template->childTemplates ? $pp->template->childTemplates : $this->templates;
+            $allTemplateIds = array();
+            foreach($this->templates as $template) $allTemplateIds[] = $template->id;
+            $possibleTemplates = $pp->template->childTemplates ? $pp->template->childTemplates : $allTemplateIds;
 
             $defaultTemplateOptions = "<select name = 'templateId[new_0]'>";
             foreach($possibleTemplates as $templateId) {
@@ -644,7 +646,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if ($cp->is(Page::statusSystemID)) continue; //Don't display if it is a system page (404, admin, trash etc)
 
                 $templateOptions = '';
+
+                //if template of current page is not an allowed template, we still need to list it so manually add
                 if(!in_array($cp->template->id, $possibleTemplates)) $templateOptions .= '<option value = "'.$cp->template->id.'" selected>' . ($cp->template->label ? $cp->template->label : $cp->template->name) . '</option>';
+
+                //populate select with possible templates to choose from
                 foreach($possibleTemplates as $templateId) {
                     $t = $this->templates->get($templateId);
                     $templateOptions .= '<option value = "'.$t->id.'" '.($t->id == $cp->template->id ? 'selected' : '').'>' . ($t->label ? $t->label : $t->name) . '</option>';
