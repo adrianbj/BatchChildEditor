@@ -46,7 +46,7 @@ function childChildTableDialog() {
         $dialog.dialog('option', 'title', title);
 
         // hide things we don't need in a modal context
-        $icontents.find('#wrap_Inputfield_template, #wrap_template, #wrap_parent_id').hide();
+        //$icontents.find('#wrap_Inputfield_template, #wrap_template, #wrap_parent_id').hide();
         //$icontents.find('#breadcrumbs ul.nav, #_ProcessPageEditDelete, #_ProcessPageEditChildren').hide();
 
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
@@ -126,7 +126,10 @@ $(document).ready(function() {
         var $row = $tbody.children(":first").clone(true);
 
         $row.find("td:eq(2)").html(''); //empty the name cell
-        $row.find("td:eq(3)").html(''); //empty the delete button cell
+        $row.find("td:eq(3)").html($('#defaultTemplates').html()); //set template data
+        $row.find("td:eq(4)").html(''); //empty the view button cell
+        $row.find("td:eq(5)").html(''); //empty the edit button cell
+        $row.find("td:eq(6)").html(''); //empty the delete button cell
 
         //in case the first row was set for deletion - the new row, cloned from this, would also be set for deletion, so need to remove class and restore opacity
         $row.removeClass('InputfieldChildTableRowDeleted');
@@ -134,10 +137,15 @@ $(document).ready(function() {
 
         $row.find(":input").each(function() {
             var $input = $(this);
-            $input.attr("name", "individualChildTitles[new_"+i+"]");
-            $input.attr('value', '');
-            $input.attr('id', '');
-            if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
+            if($($input).is("select")) {
+                $input.attr("name", "templateId[new_"+i+"]");
+            }
+            else if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
+            else {
+                $input.attr("name", "individualChildTitles[new_"+i+"]");
+                $input.attr('value', '');
+                $input.attr('id', '');
+            }
         });
 
         $tbody.append($row);

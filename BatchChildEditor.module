@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 79,
+            'version' => 80,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -88,6 +88,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "position" => "bottom",
                 "tabName" => "Batch Child Editor",
                 "disableContentProtection" => "",
+                "allowTemplateChanges" => "",
                 "editModeTitle" => "Edit Child Pages",
                 "editModeDescription" => "You can edit the page titles, sort, delete, add new, or edit pages in a modal popup.",
                 "editModeNotes" => "",
@@ -384,7 +385,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f = $this->modules->get("InputfieldSelect");
             $f->required = true;
             $f->name = "childTemplate";
-            $f->showIf = "edit_mode.count>0, edit_mode!=export";
+            $f->showIf = "edit_mode.count>0, edit_mode!=export, edit_mode!=edit";
             $f->label = __('Child Template');
             $f->columnWidth = 34;
             $f->description = __('Choose the template for new children');
@@ -614,6 +615,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $table->setEncodeEntities(false);
 
             //Build the table
+            $possibleTemplates = $pp->template->childTemplates ? $pp->template->childTemplates : $this->templates;
+
+            $defaultTemplateOptions = "<select name = 'templateId[new_0]'>";
+            foreach($possibleTemplates as $templateId) {
+                $t = $this->templates->get($templateId);
+                $defaultTemplateOptions .= '<option value = "'.$t->id.'">' . ($t->label ? $t->label : $t->name) . '</option>';
+            }
+            $defaultTemplateOptions .= "</select>";
+
             $rowNum=1;
             //if no children already, set up initial table row with blank name and delete button cells
             if(count($pp->children("include=all"))==0){
@@ -621,6 +631,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     "<i style='cursor:move' class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>",
                     "<input id='' type='text' name='individualChildTitles[new_0]' value='' style='width:100%' />",
                     "",
+                    $defaultTemplateOptions,
                     "",
                     "",
                     ""
@@ -632,11 +643,18 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
                 if ($cp->is(Page::statusSystemID)) continue; //Don't display if it is a system page (404, admin, trash etc)
 
+                $templateOptions = '';
+                if(!in_array($cp->template->id, $possibleTemplates)) $templateOptions .= '<option value = "'.$cp->template->id.'" selected>' . ($cp->template->label ? $cp->template->label : $cp->template->name) . '</option>';
+                foreach($possibleTemplates as $templateId) {
+                    $t = $this->templates->get($templateId);
+                    $templateOptions .= '<option value = "'.$t->id.'" '.($t->id == $cp->template->id ? 'selected' : '').'>' . ($t->label ? $t->label : $t->name) . '</option>';
+                }
+
                 $row = array(
                     $pp->sortfield == 'sort' && $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
                     "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' ". (!$cp->editable() ? " readonly" : "") . " />",
                     '<span style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$cp->name.'</span>',
-                    ($this->user->isSuperuser() ? '<a href="'.$this->config->urls->admin.'setup/template/edit?id='.$cp->template->id.'">' : '') . ($cp->template->label ? $cp->template->label : $cp->template->name) . ($this->user->isSuperuser() ? '</a>' : ''),
+                    $currentData['allowTemplateChanges'] && $this->user->hasPermission("page-template", $cp) ? '<select name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : $cp->template->name,
                     $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
                     $cp->editable() ? '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#"><i style="cursor:pointer" class="fa fa-pencil"></i></a>' : '',
                     $cp->trashable() ? "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>" : ""
@@ -645,7 +663,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $rowNum++;
             }
 
-            $hiddenInfo = "<input name='idsToDelete' class='InputfieldChildTableRowDelete' type='hidden' value='' />";
+            $hiddenInfo = "
+            <div id='defaultTemplates' style='display:none'>$defaultTemplateOptions</div>
+            <input name='idsToDelete' class='InputfieldChildTableRowDelete' type='hidden' value='' />
+            ";
 
             if($pp->addable()) {
                 $button = $this->wire('modules')->get('InputfieldButton');
@@ -911,13 +932,16 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $childTitle = trim($this->sanitizer->text($childTitle));
                 $i++;
                 if($childTitle == '') continue; // in case someone clicked add Page, but left it blank
+                // new page
                 elseif(strpos($id, 'new') !== FALSE){
                     $cp = new Page;
                     $cp->parent = $pp;
-                    $cp->template = $childTemplate;
+                    $cp->template = $this->input->post->templateId[$id];
                 }
+                // existing page
                 else{
                     $cp = $this->pages->get($id);
+                    if($currentData['allowTemplateChanges'] && $this->user->hasPermission("page-template", $cp)) $cp->template = $this->input->post->templateId[$cp->id];
                     //if($i==1 && !$this->input->post->childTemplate) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
                 }
                 $cp->title = $childTitle;
@@ -1264,7 +1288,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'editModes');
     $f->label = __('Modes');
     $f->required = true;
-    $f->columnWidth = 20;
+    $f->columnWidth = 25;
     $f->description = __('Which modes you want available. If more than one checked, then the user can decide.');
     $f->addOption("edit","Edit");
     $f->addOption("add","Add");
@@ -1278,7 +1302,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f = wire('modules')->get("InputfieldRadios");
     $f->attr('name', 'defaultMode');
     $f->label = __('Default Mode');
-    $f->columnWidth = 20;
+    $f->columnWidth = 25;
     $f->showIf = "editModes.count>1";
     $f->description = __('If more than one mode available to user, which one should be open by default.');
     $f->addOption("","None");
@@ -1294,7 +1318,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'overwriteNames');
     $f->label = __('Overwrite names');
     $f->showIf = "editModes=edit|update";
-    $f->columnWidth = 20;
+    $f->columnWidth = 25;
     $f->description = __('Whether to overwrite the name of the page, and not just the title.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['overwriteNames'] : $data['overwriteNames']) ? 'checked' : '' );
     $f->notes = __("Only relevant for Edit and Update modes. This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
@@ -1304,20 +1328,47 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'allowOverrideOverwriteNames');
     $f->label = __('Allow user to change "Overwrite Names" setting');
     $f->showIf = "editModes=edit|update";
-    $f->columnWidth = 20;
+    $f->columnWidth = 25;
     $f->description = __('Whether an admin user can change the override option when doing a batch edit.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideOverwriteNames'] : $data['allowOverrideOverwriteNames']) ? 'checked' : '' );
     $f->notes = __("Only relevant for Edit and Update modes.");
     $fieldset->add($f);
 
+    $fieldset = wire('modules')->get("InputfieldFieldset");
+    $fieldset->attr('id', 'batch_child_editor_data_protection_fieldset');
+    $fieldset->label = __("Content Deletion / Protection");
+    $fieldset->showIf = "editModes=edit|add|update|replace";
+    $fieldset->collapsed = Inputfield::collapsedYes;
+    $wrapper->add($fieldset);
+
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'disableContentProtection');
     $f->label = __('Disable content protection');
     $f->showIf = "editModes=replace|edit";
-    $f->columnWidth = 20;
-    $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. It also allows deletion of pages in edit mode that have their own children.');
+    $f->columnWidth = 33;
+    $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. In edit mode it allows deletion of pages that have their own children.');
     $f->notes = __("This can be extremely destructive, use with extreme caution!");
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'allowTemplateChanges');
+    $f->label = __('Allow template changes');
+    $f->showIf = "editModes=edit";
+    $f->columnWidth = 34;
+    $f->description = __('If checked, edit mode will allow template changes (if user has the "page-template" permission). There are no warnings about data loss on template change, so be careful with this.');
+    $f->notes = __("This can be extremely destructive, use with extreme caution!");
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowTemplateChanges'] : $data['allowTemplateChanges']) ? 'checked' : '' );
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldRadios");
+    $f->attr('name', 'trashOrDelete');
+    $f->label = __('Trash or Delete');
+    $f->columnWidth = 33;
+    $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
+    $f->addOption("trash","Trash");
+    $f->addOption("delete","Delete");
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['trashOrDelete'] : $data['trashOrDelete'];
     $fieldset->add($f);
 
     $fieldset = wire('modules')->get("InputfieldFieldset");
@@ -1492,25 +1543,15 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $fieldset->add($f);
 
     $fieldset = wire('modules')->get("InputfieldFieldset");
-    $fieldset->attr('id', 'batch_child_editor_delete_position_fieldset');
-    $fieldset->label = __("Delete action and editor position settings");
+    $fieldset->attr('id', 'batch_child_editor_position_fieldset');
+    $fieldset->label = __("Editor position settings");
     $fieldset->collapsed = Inputfield::collapsedYes;
     $wrapper->add($fieldset);
 
     $f = wire('modules')->get("InputfieldRadios");
-    $f->attr('name', 'trashOrDelete');
-    $f->label = __('Trash or Delete');
-    $f->columnWidth = 25;
-    $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
-    $f->addOption("trash","Trash");
-    $f->addOption("delete","Delete");
-    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['trashOrDelete'] : $data['trashOrDelete'];
-    $fieldset->add($f);
-
-    $f = wire('modules')->get("InputfieldRadios");
     $f->attr('name', 'position');
     $f->label = __('Position');
-    $f->columnWidth = 25;
+    $f->columnWidth = 33;
     $f->description = __('Where to position the Batch Child Editor tool. Replace will remove the existing page tree. New Tab will put this editor in a new tab.');
     $f->addOption("top","Top");
     $f->addOption("bottom","Bottom");
@@ -1523,7 +1564,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'loadOpen');
     $f->label = __('Load open, not collapsed');
     $f->showIf = "position!=newTab";
-    $f->columnWidth = 25;
+    $f->columnWidth = 34;
     $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
     $fieldset->add($f);
@@ -1534,7 +1575,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "position=newTab";
     $f->required = 1;
     $f->requiredIf = "position=newTab";
-    $f->columnWidth = 25;
+    $f->columnWidth = 33;
     $f->description = __('Name for the new tab.');
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['tabName'] : $data['tabName'];
     $fieldset->add($f);
