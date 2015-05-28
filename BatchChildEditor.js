@@ -127,9 +127,11 @@ $(document).ready(function() {
 
         $row.find("td:eq(2)").html(''); //empty the name cell
         $row.find("td:eq(3)").html($('#defaultTemplates').html()); //set template data
-        $row.find("td:eq(4)").html(''); //empty the view button cell
-        $row.find("td:eq(5)").html(''); //empty the edit button cell
-        $row.find("td:eq(6)").html(''); //empty the delete button cell
+        $row.find("td:eq(4)").find(':checkbox').prop('checked', false); //uncheck hidden checkbox
+        $row.find("td:eq(5)").find(':checkbox').prop('checked', false); //uncheck unpublished checkbox
+        $row.find("td:eq(6)").html(''); //empty the view button cell
+        $row.find("td:eq(7)").html(''); //empty the edit button cell
+        $row.find("td:eq(8)").html(''); //empty the delete button cell
 
         //in case the first row was set for deletion - the new row, cloned from this, would also be set for deletion, so need to remove class and restore opacity
         $row.removeClass('InputfieldChildTableRowDeleted');
@@ -139,6 +141,12 @@ $(document).ready(function() {
             var $input = $(this);
             if($($input).is("select")) {
                 $input.attr("name", "templateId[new_"+i+"]");
+            }
+            else if($($input).hasClass('hiddenStatus')) {
+                $input.attr("name", "hiddenStatus[new_"+i+"]");
+            }
+            else if($($input).hasClass('unpublishedStatus')) {
+                $input.attr("name", "unpublishedStatus[new_"+i+"]");
             }
             else if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
             else {

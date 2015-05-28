@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 81,
+            'version' => 82,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -607,6 +607,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 __('Title'),
                 __('Name'),
                 __('Template'),
+                __('Hidden'),
+                __('Unpublished'),
                 __('View'),
                 __('Edit'),
                 __('Delete')
@@ -636,6 +638,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $defaultTemplateOptions,
                     "",
                     "",
+                    "",
+                    "",
                     ""
                 );
                 $table->row($row);
@@ -644,6 +648,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             foreach ($pp->children("include=all") as $cp) {
 
                 if ($cp->is(Page::statusSystemID)) continue; //Don't display if it is a system page (404, admin, trash etc)
+
+                $allowPublish = true;
+                if(!$this->wire('user')->isSuperuser()) {
+                    $publishPermission = $this->wire('permissions')->get('page-publish');
+                    if($publishPermission->id && !$this->wire('user')->hasPermission('page-publish')) $allowPublish = false;
+                }
 
                 $templateOptions = '';
 
@@ -661,6 +671,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     "<input id='{$cp->id}' type='text' name='individualChildTitles[{$cp->id}]' value='{$cp->title}' style='width:100%' ". (!$cp->editable() ? " readonly" : "") . " />",
                     '<span style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$cp->name.'</span>',
                     $currentData['allowTemplateChanges'] && $this->user->hasPermission("page-template", $cp) ? '<select name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : $cp->template->name,
+                    '<input class="hiddenStatus" name="hiddenStatus['.$cp->id.']" type="checkbox" '.($cp->is(Page::statusHidden) ? 'checked' : '').'/>',
+                    '<input class="unpublishedStatus" name="unpublishedStatus['.$cp->id.']" type="checkbox"'.($cp->is(Page::statusUnpublished) ? ' checked' : '').(!$allowPublish ? ' disabled' : '').'/>',
                     $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
                     $cp->editable() ? '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#"><i style="cursor:pointer" class="fa fa-pencil"></i></a>' : '',
                     $cp->trashable() ? "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>" : ""
@@ -943,11 +955,29 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $cp = new Page;
                     $cp->parent = $pp;
                     $cp->template = $this->input->post->templateId[$id];
+                    if(isset($this->input->post->hiddenStatus[$id])) $cp->addStatus(Page::statusHidden);
+                    if(isset($this->input->post->unpublishedStatus[$id])) $cp->addStatus(Page::statusUnpublished);
                 }
                 // existing page
                 else{
                     $cp = $this->pages->get($id);
+
                     if($currentData['allowTemplateChanges'] && $this->user->hasPermission("page-template", $cp)) $cp->template = $this->input->post->templateId[$cp->id];
+
+                    if(isset($this->input->post->hiddenStatus[$cp->id])) {
+                        $cp->addStatus(Page::statusHidden);
+                    }
+                    else {
+                        $cp->removeStatus(Page::statusHidden);
+                    }
+
+                    if(isset($this->input->post->unpublishedStatus[$cp->id])) {
+                        $cp->addStatus(Page::statusUnpublished);
+                    }
+                    else {
+                        $cp->removeStatus(Page::statusUnpublished);
+                    }
+
                     //if($i==1 && !$this->input->post->childTemplate) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
                 }
                 $cp->title = $childTitle;
