@@ -13,7 +13,7 @@ This module adds a new section to the Children Tab or optionally creates a new d
 
 In Add, Update, and Replace modes you can enter CSV formatted rows to populate all text/numeric fields. This can be used to create new pages or to update existing pages. CSV field pairings can be defined to make it easy for editors to periodically create new pages, or update the fields in existing pages.
 
-The exportCsv() API method can be used like this:
+There is also an exportCsv() API method that can be used like this:
 ```
 <?php
 // export as CSV if csv_export=1 is in url
@@ -27,7 +27,7 @@ if($input->get->csv_export==1){
 else{
    include("./head.inc");
 
-   echo "<a href='./?csv_export=1'>Export Table as CSV</a>"; //link to initiate export
+   echo "<a href='./?csv_export=1'>Export Child Pages as CSV</a>"; //link to initiate export
 
    include("./foot.inc");
 }
