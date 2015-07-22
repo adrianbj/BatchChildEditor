@@ -22,7 +22,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation and editing of child page titles and names.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 82,
+            'version' => 83,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -222,6 +222,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     }
                 }
                 $missingFields = array();
+                $availableFields = array();
                 foreach($possibleTemplates as $t) {
                     foreach($convertedFieldPairings as $f) {
                         //check for subfields with period (.) separator and extract parent field name
@@ -229,7 +230,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $fieldParts = explode('.', $f);
                             $f = $fieldParts[0];
                         }
-                        if(!$this->templates->get($t)->hasField($f)) $missingFields[] = $f;
+                        if($this->templates->get($t)->hasField($f)) {
+                            if(!in_array($f, $availableFields)) $availableFields[] = $f;
+                        }
+                        else{
+                            if(!in_array($f, $missingFields)) $missingFields[] = $f;
+                        }
+                    }
+                }
+                foreach($availableFields as $af) {
+                    if(($key = array_search($af, $missingFields)) !== false) {
+                        unset($missingFields[$key]);
                     }
                 }
                 if(!empty($missingFields)) $this->error($this->_("The following fields defined in \"Field Pairings\" are not available in any of the allowed templates for child pages: " . implode(', ', $missingFields)));
@@ -1043,6 +1054,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childPages = str_replace("\r\n","\n", $childPages); //fix for Windows line endings
         $childPages = str_replace("\r","\n", $childPages); //fix for Mac Excel line ending issue - http://nicercode.github.io/blog/2013-04-30-excel-and-line-endings/
         $childPagesArray = explode("\n",$childPages);
+
+        if($childPages == '') return;
 
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
