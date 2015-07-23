@@ -1,10 +1,8 @@
 <?php
 
 /**
- * ProcessWire Batch creation and editing of child page titles
+ * ProcessWire batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.
  * by Adrian Jones
- *
- * Quick batch editing of all child page, so long as they only have a title field.
  *
  * ProcessWire 2.x
  * Copyright (C) 2011 by Ryan Cramer
@@ -20,9 +18,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return array(
             'title' => 'Batch child editor',
-            'summary' => 'Quick batch creation and editing of child page titles and names.',
+            'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 83,
+            'version' => 84,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -349,9 +347,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $fieldEnclosure = $currentData['csvImportFieldEnclosure'];
             $ignoreFirstRow = $currentData['ignoreFirstRow'];
 
-            if($this->session->userFieldSeparator) $currentData['csvImportFieldSeparator'] = $this->session->userFieldSeparator;
-            if($this->session->userFieldEnclosure) $currentData['csvImportFieldEnclosure'] = $this->session->userFieldEnclosure;
-            if($this->session->userIgnoreFirstRow) $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
+            if($this->session->userCsvImportFieldSeparator) $currentData['csvImportFieldSeparator'] = $this->session->userCsvImportFieldSeparator;
+            if($this->session->userCsvImportFieldEnclosure) $currentData['csvImportFieldEnclosure'] = $this->session->userCsvImportFieldEnclosure;
+            if($this->session->userCsvImportIgnoreFirstRow) $currentData['ignoreFirstRow'] = $this->session->userCsvImportIgnoreFirstRow;
         }
 
         foreach($pp->children("include=all") as $cp) {
@@ -459,7 +457,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->label = __('CSV ignore the first row');
             $f->description = __('Use this if the first row contains column/field labels.');
             $f->showIf = "edit_mode=add|update|replace";
-            //using $this->session->userFieldSeparator in the ternary conditional because when $this->session->userIgnoreFirstRow is not "1", it doesn't seem to exist, even with isset!
+            //using $this->session->userCsvImportFieldSeparator in the ternary conditional because when $this->session->userIgnoreFirstRow is not "1", it doesn't seem to exist, even with isset!
             //this is fine, because once page has been saved, with any of these overrides, we have values for all in the session variable
             $f->attr('checked', ($this->session->userCsvImportFieldSeparator ? $this->session->userIgnoreFirstRow : $currentData['ignoreFirstRow']) ? 'checked' : '' );
             $f->columnWidth = 33;
@@ -868,9 +866,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //get user CSV setting overrides if allowed
         if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
-            $currentData['fieldSeparator'] = $this->session->userFieldSeparator;
-            $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure;
-            $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow;
+            $currentData['fieldSeparator'] = $this->session->userCsvImportFieldSeparator;
+            $currentData['fieldEnclosure'] = $this->session->userCsvImportFieldEnclosure;
+            $currentData['ignoreFirstRow'] = $this->session->userCsvImportIgnoreFirstRow;
         }
 
         //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
@@ -1062,10 +1060,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //get user CSV setting overrides if allowed
         if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
-            $currentData['fieldSeparator'] = $this->session->userFieldSeparator = $this->input->post->userFieldSeparator;
-            $currentData['fieldEnclosure'] = $this->session->userFieldEnclosure = $this->input->post->userFieldEnclosure;
-            $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow = $this->input->post->userIgnoreFirstRow;
+            $currentData['fieldSeparator'] = $this->session->userCsvImportFieldSeparator = $this->input->post->userCsvImportFieldSeparator;
+            $currentData['fieldEnclosure'] = $this->session->userCsvImportFieldEnclosure = $this->input->post->userCsvImportFieldEnclosure;
+            $currentData['ignoreFirstRow'] = $this->session->userCsvImportIgnoreFirstRow = $this->input->post->userCsvImportIgnoreFirstRow;
         }
+
+        error_log('FS:'.$currentData['fieldSeparator']);
 
         //if defined, get field pairings
         if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
