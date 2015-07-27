@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 85,
+            'version' => 86,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -398,7 +398,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->label = __('Child Template');
             $f->columnWidth = 34;
             $f->description = __('Choose the template for new children');
-            if(count($pp->template->childTemplates)==0){
+            /*if(count($pp->template->childTemplates)==0){
                 foreach($this->templates as $t) {
                     if(!($t->flags & Template::flagSystem)) $f->addOption($t->name);
                 }
@@ -408,6 +408,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 foreach($pp->template->childTemplates as $t) {
                     $f->addOption($this->templates->get($t)->name);
                 }
+            }*/
+            foreach($this->templates as $t) {
+                if(!$this->isAllowedTemplateAdd($t, $pp)) continue;
+                $f->addOption($this->templates->get($t)->name);
             }
             if($pp->children("include=all")->count()>0 && $pp->children("include=all")->last()->id) $f->attr('value', $pp->children("include=all")->last()->template);
             $childEditSet->add($f);
@@ -467,16 +471,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // Add
         if(in_array('add', $currentData['editModes'])) {
 
-            if($currentData['csvOptions']) {
-                $csvFieldset = $this->modules->get("InputfieldFieldset");
-                $csvFieldset->label = $currentData['addModeTitle'];
-                $csvFieldset->description = $currentData['addModeDescription'];
-                $csvFieldset->notes = $currentData['addModeNotes'];
-                $csvFieldset->showIf = "edit_mode=add";
-                $childEditSet->add($csvFieldset);
-            }
+            $csvFieldset = $this->modules->get("InputfieldFieldset");
+            $csvFieldset->label = $currentData['addModeTitle'];
+            $csvFieldset->description = $currentData['addModeDescription'];
+            $csvFieldset->notes = $currentData['addModeNotes'];
+            $csvFieldset->showIf = "edit_mode=add";
+            $childEditSet->add($csvFieldset);
 
-            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions'])) {
+            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions']) || !$currentData['csvOptions']) {
                 $f = $this->modules->get("InputfieldTextarea");
                 $f->name = "childPagesAdd";
                 $f->showIf = "edit_mode=add";
@@ -513,16 +515,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // Update
         if(in_array('update', $currentData['editModes'])) {
 
-            if($currentData['csvOptions']) {
-                $csvFieldset = $this->modules->get("InputfieldFieldset");
-                $csvFieldset->label = $currentData['updateModeTitle'];
-                $csvFieldset->description = $currentData['updateModeDescription'];
-                $csvFieldset->notes = $currentData['updateModeNotes'];
-                $csvFieldset->showIf = "edit_mode=update";
-                $childEditSet->add($csvFieldset);
-            }
+            $csvFieldset = $this->modules->get("InputfieldFieldset");
+            $csvFieldset->label = $currentData['updateModeTitle'];
+            $csvFieldset->description = $currentData['updateModeDescription'];
+            $csvFieldset->notes = $currentData['updateModeNotes'];
+            $csvFieldset->showIf = "edit_mode=update";
+            $childEditSet->add($csvFieldset);
 
-            if(in_array('paste', $currentData['csvOptions'])) {
+            if(($currentData['csvOptions'] && in_array('paste', $currentData['csvOptions'])) || !$currentData['csvOptions']) {
                 $f = $this->modules->get("InputfieldTextarea");
                 $f->name = "childPagesUpdate";
                 $f->showIf = "edit_mode=update";
@@ -533,7 +533,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $csvFieldset->append($f);
             }
 
-            if(in_array('link', $currentData['csvOptions'])) {
+            if($currentData['csvOptions'] && in_array('link', $currentData['csvOptions'])) {
                 $f = $this->modules->get("InputfieldURL");
                 $f->name = "csvUrlUpdate";
                 $f->showIf = "edit_mode=update";
@@ -544,7 +544,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $csvFieldset->append($f);
             }
 
-            if(in_array('upload', $currentData['csvOptions'])) {
+            if($currentData['csvOptions'] && in_array('upload', $currentData['csvOptions'])) {
                 $f = $this->modules->get("InputfieldMarkup");
                 $f->label = __("Upload CSV file");
                 $f->name = 'csvUploadUpdate';
@@ -559,16 +559,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // Replace
         if(in_array('replace', $currentData['editModes'])) {
 
-            if($currentData['csvOptions']) {
-                $csvFieldset = $this->modules->get("InputfieldFieldset");
-                $csvFieldset->label = $currentData['replaceModeTitle'];
-                $csvFieldset->description = $currentData['replaceModeDescription'];
-                $csvFieldset->notes = $currentData['replaceModeNotes'];
-                $csvFieldset->showIf = "edit_mode=replace";
-                $childEditSet->add($csvFieldset);
-            }
+            $csvFieldset = $this->modules->get("InputfieldFieldset");
+            $csvFieldset->label = $currentData['replaceModeTitle'];
+            $csvFieldset->description = $currentData['replaceModeDescription'];
+            $csvFieldset->notes = $currentData['replaceModeNotes'];
+            $csvFieldset->showIf = "edit_mode=replace";
+            $childEditSet->add($csvFieldset);
 
-            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions'])) {
+            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions']) || !$currentData['csvOptions']) {
                 $f = $this->modules->get("InputfieldTextarea");
                 $f->name = "childPagesReplace";
                 $f->showIf = "edit_mode=replace";
@@ -633,6 +631,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $defaultTemplateOptions = "<select name = 'templateId[new_0]'>";
             foreach($possibleTemplates as $templateId) {
                 $t = $this->templates->get($templateId);
+                if(!$this->isAllowedTemplateAdd($templateId, $pp)) continue;
                 $defaultTemplateOptions .= '<option value = "'.$t->id.'">' . ($t->label ? $t->label : $t->name) . '</option>';
             }
             $defaultTemplateOptions .= "</select>";
@@ -672,6 +671,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 //populate select with possible templates to choose from
                 foreach($possibleTemplates as $templateId) {
                     $t = $this->templates->get($templateId);
+                    if(!$this->isAllowedTemplateEdit($templateId, $cp)) continue;
                     $templateOptions .= '<option value = "'.$t->id.'" '.($t->id == $cp->template->id ? 'selected' : '').'>' . ($t->label ? $t->label : $t->name) . '</option>';
                 }
 
@@ -939,10 +939,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $this->error($this->_("You cannot delete this child page, because it has a child page of its own. You can prevent this check by disabling Content Protection in the module config settings."));
                             return;
                         }
-                        foreach($ptod->fields as $ptodfield){
-                            if($ptodfield->name != 'title' && $ptod->$ptodfield !=''){
-                                $this->error($this->_("You cannot delete this child page, because it has a field which is not empty. You can prevent this check by disabling Content Protection in the module config settings."));
-                                return;
+                        if(is_array($ptod->fields) && !empty($ptod->fields)) {
+                            foreach($ptod->fields as $ptodfield){
+                                if($ptodfield->name != 'title' && $ptod->$ptodfield !=''){
+                                    $this->error($this->_("You cannot delete this child page, because it has a field which is not empty. You can prevent this check by disabling Content Protection in the module config settings."));
+                                    return;
+                                }
                             }
                         }
                     }
@@ -961,7 +963,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if($childTitle == '') continue; // in case someone clicked add Page, but left it blank
                 // new page
                 elseif(strpos($id, 'new') !== FALSE){
-                    $cp = new Page;
+                    if((is_array($pp->template->childTemplates) && !empty($pp->template->childTemplates) && !in_array($this->input->post->templateId[$id], $pp->template->childTemplates)) || $this->templates->get($this->input->post->templateId[$id])->noParents) {
+                        $this->error($this->_("Some pages could not be created due to template family settings."));
+                        continue;
+                    }
+                    $cp = new Page();
                     $cp->parent = $pp;
                     $cp->template = $this->input->post->templateId[$id];
                     if(isset($this->input->post->hiddenStatus[$id])) $cp->addStatus(Page::statusHidden);
@@ -1051,9 +1057,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childPages = trim(preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $childPages),"\n"); // remove any blank lines
         $childPages = str_replace("\r\n","\n", $childPages); //fix for Windows line endings
         $childPages = str_replace("\r","\n", $childPages); //fix for Mac Excel line ending issue - http://nicercode.github.io/blog/2013-04-30-excel-and-line-endings/
-        $childPagesArray = explode("\n",$childPages);
-
         if($childPages == '') return;
+        $childPagesArray = explode("\n",$childPages);
 
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
@@ -1188,6 +1193,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np->parent = $pp;
                             $np->template = $childTemplate;
                         }
+
                         $np->title = trim($this->sanitizer->text($childField));
                         if($np->isChanged("title")) {
                             $np->of(false);
@@ -1280,6 +1286,255 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $convertedFieldPairings[$array[0]] = $array[1];
         }
         return $convertedFieldPairings;
+    }
+
+
+    /**
+     * Returns an array of templates that are allowed to be used here
+     *
+     */
+    protected function getAllowedTemplatesEdit() {
+
+        if(is_array($this->allowedTemplates)) return $this->allowedTemplates;
+
+        $templates = array();
+        $user = $this->fuel('user');
+        $isSuperuser = $user->isSuperuser();
+        $page = $this->masterPage ? $this->masterPage : $this->page;
+        $parent = $page->parent;
+        $parentEditable = ($parent->id && $parent->editable());
+
+        // current page template is assumed, otherwise we wouldn't be here
+        $templates[$page->template->id] = $page->template;
+
+        // check if they even have permission to change it
+        if(!$user->hasPermission('page-template', $page) || $page->template->noChangeTemplate) {
+            $this->allowedTemplates = $templates;
+            return $templates;
+        }
+
+        $allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates');
+
+        foreach($allTemplates as $template) {
+
+            if(isset($templates[$template->id])) continue;
+
+            if($template->flags & Template::flagSystem) {
+                // if($template->name == 'user' && $parent->id != $this->config->usersPageID) continue;
+                if(in_array($template->id, $this->config->userTemplateIDs) && !in_array($parent->id, $this->config->usersPageIDs)) continue;
+                if($template->name == 'role' && $parent->id != $this->config->rolesPageID) continue;
+                if($template->name == 'permission' && $parent->id != $this->config->permissionsPageID) continue;
+            }
+
+            if(count($template->parentTemplates) && $parent->id && !in_array($parent->template->id, $template->parentTemplates)) {
+                // this template specifies it can only be used with certain parents, and our parent's template isn't one of them
+                continue;
+            }
+
+            if($parent->id && count($parent->template->childTemplates)) {
+                // the page's parent only allows certain templates for it's children
+                // if this isn't one of them, then continue;
+                if(!in_array($template->id, $parent->template->childTemplates)) continue;
+            }
+
+            if($isSuperuser) {
+                $templates[$template->id] = $template;
+
+            } else if($template->noParents) {
+                // user can't change to a template that has been specified as no more instances allowed
+                // except for superuser... we'll let them do it
+                continue;
+
+            } else if((!$template->useRoles && $parentEditable) || $user->hasPermission('page-edit', $template)) {
+                // determine if the template's assigned roles match up with the users's roles
+                // and that at least one of those roles has page-edit permission
+                if($user->hasPermission('page-create', $page)) {
+                    // user is allowed to create more pages of this type, so template may be used
+                    $templates[$template->id] = $template;
+                }
+            }
+        }
+
+        $this->allowedTemplates = $templates;
+        return $templates;
+    }
+
+    /**
+     * Is the given template or template ID allowed here?
+     *
+     */
+    protected function isAllowedTemplateEdit($id, $cp) {
+
+        // if the template is the same one already in place, of course it's allowed
+        if($id == $cp->template->id) return true;
+
+        // if we've made it this far, then get a list of templates that are allowed...
+        $templates = $this->getAllowedTemplatesEdit();
+
+        // ...and determine if the supplied template is in that list
+        return isset($templates[$id]);
+    }
+
+
+    /**
+     * Returns an array of templates that are allowed to be used here
+     *
+     */
+    protected function getAllowedTemplatesAdd($parent) {
+
+        if(is_array($this->allowedTemplates)) return $this->allowedTemplates;
+
+        $user = $this->wire('user');
+        $templates = array();
+        $allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates');
+        $allParents = $this->getAllowedParentsAdd(null, $parent);
+        $usersPageIDs = $this->wire('config')->usersPageIDs;
+        $userTemplateIDs = $this->wire('config')->userTemplateIDs;
+
+        if($parent->is(Page::statusUnpublished)) {
+            $parentEditable = $parent->editable();
+        } else {
+            // temporarily put the parent in an unpublished status so that we can check it from
+            // the proper context: when page-publish permission exists, a page not not editable
+            // if a user doesn't have page-publish permission to it, even though it may still
+            // be editable if it was unpublished.
+            $parent->addStatus(Page::statusUnpublished);
+            $parentEditable = $parent->editable();
+            $parent->removeStatus(Page::statusUnpublished);
+        }
+
+        foreach($allTemplates as $t) {
+
+            if($t->noParents) continue;
+            if($t->useRoles && !$user->hasPermission('page-create', $t)) continue;
+            if(!$t->useRoles && !$parentEditable) continue;
+            if(!$t->useRoles && !$user->hasPermission('page-create', $parent)) continue;
+
+            if(count($allParents) == 1) {
+                if(count($parent->template->childTemplates)) {
+                    // check that this template is allowed by the defined parent
+                    if(!in_array($t->id, $parent->template->childTemplates)) continue;
+                }
+            }
+
+            if(count($t->parentTemplates)) {
+                // this template is only allowed for certain parents
+                $allow = false;
+                foreach($allParents as $parent) {
+                    if(in_array($parent->template->id, $t->parentTemplates)) {
+                        $allow = true;
+                        break;
+                    }
+                }
+                if(!$allow) continue;
+            }
+
+            if(in_array($t->id, $userTemplateIDs)) {
+                // this is a user template: allow any parents defined in $config->usersPageIDs
+                $allow = false;
+                foreach($allParents as $parent) {
+                    if(in_array($parent->id, $usersPageIDs)) {
+                        $allow = true;
+                        break;
+                    }
+                }
+                if(!$allow) continue;
+
+            } else if($t->name == 'role' && $parent->id != $this->config->rolesPageID) {
+                // only allow role templates below rolesPageID
+                continue;
+
+            } else if($t->name == 'permission' && $parent->id != $this->config->permissionsPageID) {
+                // only allow permission templates below permissionsPageID
+                continue;
+            }
+
+            $templates[$t->id] = $t;
+        }
+
+        if($this->template || count($this->predefinedTemplates)) {
+            $predefinedTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : array($this->template);
+            foreach($predefinedTemplates as $t) {
+                $isUserTemplate = in_array($t->id, $userTemplateIDs);
+                if($isUserTemplate && !isset($templates[$t->id]) && $user->hasPermission('user-admin')) {
+                    // account for the unique situation of user-admin permission
+                    // where all user-based templates are allowed
+                    $templates[$t->id] = $t;
+                }
+            }
+        }
+
+        $this->allowedTemplates = $templates;
+
+        return $templates;
+    }
+
+
+    /**
+     * Get allowed parents
+     *
+     * This will always be 1-parent, unless predefinedParents was populated.
+     *
+     * @param Template $template Optionally specify a template to filter parents by
+     * @return PageArray
+     *
+     */
+    protected function getAllowedParentsAdd(Template $template = null, $pp) {
+        if(count($this->predefinedParents)) {
+            $parents = $this->predefinedParents;
+        } else {
+            $parents = new PageArray();
+            if($pp) $parents->add($pp);
+        }
+        foreach($parents as $parent) {
+            if(!$parent->addable()) $parents->remove($parent);
+            if($parent->template->noChildren) $parents->remove($parent);
+            if($template && count($parent->template->childTemplates)) {
+                // parent only allows certain templates for children
+                // if a template was given in the arguments, check that it is allowed
+                if(!in_array($template->id, $parent->template->childTemplates)) {
+                    $parents->remove($parent);
+                }
+            }
+        }
+        if($template && count($template->parentTemplates)) {
+            // given template only allows certain parents
+            foreach($parents as $parent) {
+                if(!in_array($parent->template->id, $template->parentTemplates)) {
+                    $parents->remove($parent);
+                }
+            }
+        }
+        return $parents;
+    }
+
+
+    /**
+     * Is the given template or template ID allowed here?
+     *
+     * @param Template|int Template ID or object
+     * @param Page $parent Optionally parent page to filter by
+     * @return bool
+     * @throws WireException of template argument can't be resolved
+     *
+     */
+    protected function isAllowedTemplateAdd($template, Page $parent = null) {
+        if(!is_object($template)) $template = $this->wire('templates')->get($template);
+        if(!$template) throw new WireException('Unknown template');
+        $templates = $this->getAllowedTemplatesAdd($parent);
+        $allowed = isset($templates[$template->id]);
+        if($allowed && $parent) {
+            if(count($parent->template->childTemplates) && !in_array($template->id, $parent->template->childTemplates)) {
+                $allowed = false;
+            } else if($parent->template->noChildren) {
+                $allowed = false;
+            } else if(count($template->parentTemplates) && !in_array($parent->template->id, $template->parentTemplates)) {
+                $allowed = false;
+            } else if($template->noParents) {
+                $allowed = false;
+            }
+        }
+        return $allowed;
     }
 
 
