@@ -46,7 +46,7 @@ function childChildTableDialog() {
         $dialog.dialog('option', 'title', title);
 
         // hide things we don't need in a modal context
-        $icontents.find('#wrap_Inputfield_template, #wrap_template, #wrap_parent_id').hide();
+        //$icontents.find('#wrap_Inputfield_template, #wrap_template, #wrap_parent_id').hide();
         //$icontents.find('#breadcrumbs ul.nav, #_ProcessPageEditDelete, #_ProcessPageEditChildren').hide();
 
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
@@ -96,6 +96,25 @@ function childChildTableSortable($table) {
 
 $(document).ready(function() {
 
+    //csv export
+    $('.Inputfield_iframe').hide();
+    $('.Inputfield_csv_settings').hide();
+    $(document).on('click', '.children_export_csv', function(){
+        $('#download').attr('src', config.urls.admin+
+            "setup/children-csv-export/?pid="+
+            $(this).attr('data-pageid')+
+            "&fns="+($("#Inputfield_userExportFields").val() ? $("#Inputfield_userExportFields").val() : $("#Inputfield_exportFields").val())+
+            "&cs="+$("#Inputfield_export_column_separator").val()+
+            "&ce="+$("#Inputfield_export_column_enclosure").val()+
+            "&ext="+$("#Inputfield_export_extension").val()+
+            "&nfr="+($("#Inputfield_export_names_first_row").is(':checkbox') ? $("#Inputfield_export_names_first_row").attr('checked') : $("#Inputfield_export_names_first_row").val())+
+            "&mvs="+$("#Inputfield_multiple_values_separator").val()
+        );
+        return false;
+    });
+
+
+
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
 
     var i=0;
@@ -107,7 +126,12 @@ $(document).ready(function() {
         var $row = $tbody.children(":first").clone(true);
 
         $row.find("td:eq(2)").html(''); //empty the name cell
-        $row.find("td:eq(3)").html(''); //empty the delete button cell
+        $row.find("td:eq(3)").html($('#defaultTemplates').html()); //set template data
+        $row.find("td:eq(4)").find(':checkbox').prop('checked', false); //uncheck hidden checkbox
+        $row.find("td:eq(5)").find(':checkbox').prop('checked', false); //uncheck unpublished checkbox
+        $row.find("td:eq(6)").html(''); //empty the view button cell
+        $row.find("td:eq(7)").html(''); //empty the edit button cell
+        $row.find("td:eq(8)").html(''); //empty the delete button cell
 
         //in case the first row was set for deletion - the new row, cloned from this, would also be set for deletion, so need to remove class and restore opacity
         $row.removeClass('InputfieldChildTableRowDeleted');
@@ -115,10 +139,21 @@ $(document).ready(function() {
 
         $row.find(":input").each(function() {
             var $input = $(this);
-            $input.attr("name", "individualChildTitles[new_"+i+"]");
-            $input.attr('value', '');
-            $input.attr('id', '');
-            if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
+            if($($input).is("select")) {
+                $input.attr("name", "templateId[new_"+i+"]");
+            }
+            else if($($input).hasClass('hiddenStatus')) {
+                $input.attr("name", "hiddenStatus[new_"+i+"]");
+            }
+            else if($($input).hasClass('unpublishedStatus')) {
+                $input.attr("name", "unpublishedStatus[new_"+i+"]");
+            }
+            else if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
+            else {
+                $input.attr("name", "individualChildTitles[new_"+i+"]");
+                $input.attr('value', '');
+                $input.attr('id', '');
+            }
         });
 
         $tbody.append($row);

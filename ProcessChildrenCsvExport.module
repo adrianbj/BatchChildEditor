@@ -1,0 +1,244 @@
+<?php
+
+/**
+ * ProcessWire Table CSV Export Helper
+ * by Adrian Jones
+ *
+ * Helper process module for generating CSV from a Table field
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class ProcessChildrenCsvExport extends Process implements Module {
+
+    /**
+     * getModuleInfo is a module required by all modules to tell ProcessWire about them
+     *
+     * @return array
+     *
+     */
+    public static function getModuleInfo() {
+        return array(
+            'title' => __('Process Children CSV Export'),
+            'version' => 2,
+            'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
+            'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
+            'singular' => true,
+            'autoload' => false,
+            'permission' => 'batch-child-editor',
+            'requires' => 'BatchChildEditor'
+            );
+    }
+
+    /**
+     * Name used for the page created in the admin
+     *
+     */
+    const adminPageName = 'children-csv-export';
+
+
+
+    /**
+     * Initialize the module
+     *
+     */
+    public function init() {
+        parent::init();
+        $this->addHook('Page::exportCsv', $this, 'exportCsv'); // not limited to table-csv-export permission because only relevant to front-end
+    }
+
+    /**
+     * Executed when root url for module is accessed
+     *
+     */
+    public function ___execute() {
+        $this->exportCsv();
+    }
+
+
+    public function outputCSV($data, $delimiter, $enclosure) {
+        $output = fopen("php://output", "w");
+        foreach ($data as $row) {
+            fputcsv($output, $row, $delimiter == "tab" ? chr(9) : $delimiter, $enclosure);
+        }
+        fclose($output);
+    }
+
+
+    public function exportCsv($event = NULL) {
+
+        $defaultSettings = wire('modules')->get("BatchChildEditor")->getDefaultData();
+        $systemFields = $defaultSettings['systemFields'];
+
+        $configSettings = wire('modules')->getModuleConfigData("BatchChildEditor");
+
+        $delimiter = !is_null($event) ? $event->arguments(0) : wire('input')->get->cs;
+        $enclosure = !is_null($event) ? $event->arguments(1) : wire('input')->get->ce;
+        $extension = !is_null($event) ? $event->arguments(2) : wire('input')->get->ext;
+        $namesFirstRow = !is_null($event) ? $event->arguments(3) : wire('input')->get->nfr;
+        $namesFirstRow = $namesFirstRow == 'checked' || $namesFirstRow == '1' ? true : false;
+        $multipleValuesSeparator = !is_null($event) ? $event->arguments(4) : wire('input')->get->mvs;
+        $fieldNames = !is_null($event) ? $event->arguments(5) : explode(',', wire('input')->get->fns);
+        $pp = !is_null($event) ? $event->object : wire('pages')->get((int) wire('input')->get->pid);
+
+        //if settings not supplied, use defaults from page or module config settings
+        $currentData = in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
+        $delimiter = $delimiter ? $delimiter : $currentData['csvExportFieldSeparator'];
+        $enclosure = $enclosure ? $enclosure : $currentData['csvExportFieldEnclosure'];
+        $extension = $extension ? $extension : $currentData['csvExportExtension'];
+        $namesFirstRow = $namesFirstRow ? $namesFirstRow : $currentData['columnsFirstRow'];
+        $multipleValuesSeparator = $multipleValuesSeparator ? $multipleValuesSeparator : $currentData['multipleValuesSeparator'];
+        $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
+
+        $csv = array();
+        $i=0;
+        foreach($pp->children as $p){
+
+            $p->of(true); //needed to have fields formatted in the CSV
+
+            //Names in First Row
+            if($i==0 && $namesFirstRow == true){
+                foreach($fieldNames as $fieldName){
+
+                    //exclude unsupported field types
+                    if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' || wire('fields')->$fieldName->type == 'FieldtypeRepeater' || wire('fields')->$fieldName->type == 'FieldtypePageTable')) continue;
+
+                    //FieldtypeTextareas
+                    if(wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeTextareas') {
+                        $field = wire('fields')->get($fieldName);
+                        $subfields = $field->type->getBlankValue(new Page(), $field);
+                        foreach($subfields as $subFieldName => $value) {
+                            $csv[$i][] = $field->type->getLabel($field, $subFieldName) ? $field->type->getLabel($field, $subFieldName) : $subFieldName;
+                        }
+                    }
+                    //All other fieldtypes
+                    else {
+                        if(array_key_exists($fieldName, $systemFields)) {
+                            $fieldLabel = $systemFields[$fieldName];
+                        }
+                        else {
+                            $label = wire('fields')->get($fieldName)->label;
+                            $fieldLabel = $label ? $label : $fieldName;
+                        }
+                        $csv[$i][] = $fieldLabel;
+                    }
+                }
+            }
+
+            //All Data Rows
+            $i++;
+            foreach($fieldNames as $fieldName){
+
+                //exclude unsupported field types
+                if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' || wire('fields')->$fieldName->type == 'FieldtypeRepeater' || wire('fields')->$fieldName->type == 'FieldtypePageTable')) continue;
+
+                if(!$p->$fieldName) {
+                    $formattedValue = '';
+                }
+                //FieldtypeTextareas
+                elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeTextareas') {
+                    $field = wire('fields')->get($fieldName);
+                    $subfields = $field->type->getBlankValue(new Page(), $field);
+                    foreach($subfields as $subFieldName => $value) {
+                        $csv[$i][] = $p->$fieldName->$subFieldName;
+                    }
+                }
+                //Datetime fields
+                elseif((wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeDatetime') || $fieldName == 'created' || $fieldName == 'modified') {
+                    $formattedValue = date("Y-m-d H:i:s", $p->$fieldName);
+                }
+                //Page fields
+                elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypePage) {
+                    if($p->$fieldName->implode($multipleValuesSeparator, 'title')) { // title available
+                        $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'title');
+                    }
+                    else { // no title so use name - eg a page field selecting from the user template
+                        $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'name');
+                    }
+                }
+                //FieldtypeMultiplier and FieldtypeFile
+                elseif(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeMultiplier' || wire('fields')->$fieldName->type instanceof FieldtypeFile)) {
+                    $values = array();
+                    foreach($p->$fieldName as $value) $values[] = $value;
+                    $formattedValue = implode($multipleValuesSeparator, $values);
+                }
+                //All other fields
+                else {
+                    $formattedValue = $p->$fieldName;
+                }
+
+                //Populate $csv array for all fields that don't have subfields and are therefore already populated, like FieldtypeTextareas
+                if(array_key_exists($fieldName, $systemFields) || (wire('fields')->$fieldName && wire('fields')->$fieldName->type != 'FieldtypeTextareas')) {
+                    $csv[$i][] = $formattedValue;
+                }
+
+            }
+        }
+
+        header("Content-type: text/csv");
+        header("Content-Disposition: attachment; filename=".$pp->name .".".$extension);
+        header("Pragma: no-cache");
+        header("Expires: 0");
+
+        $this->outputCSV($csv, $delimiter, $enclosure);
+        exit;
+
+    }
+
+
+
+    /**
+     * Install the module and create the page where it lives
+     *
+     */
+    public function ___install() {
+
+        $page = $this->getInstalledPage();
+        $this->message("Installed to {$page->path}");
+
+    }
+
+    /**
+     * Return the page that this Process is installed on
+     *
+     */
+    protected function getInstalledPage() {
+
+        $parent = $this->pages->get("name=page,parent=".$this->config->adminRootPageID);
+        $page = $parent->child("name=" . self::adminPageName);
+
+        if(!$page->id) {
+            $page = new Page();
+            $page->template = 'admin';
+            $page->parent = $this->pages->get($this->config->adminRootPageID)->child('name=setup');
+            $page->title = 'Children CSV Export';
+            $page->name = self::adminPageName;
+            $page->process = $this;
+            $page->status = Page::statusHidden;
+            $page->save();
+        }
+
+        return $page;
+    }
+
+    /**
+     * Uninstall the module
+     *
+     */
+    public function ___uninstall() {
+        $moduleID = $this->modules->getModuleID($this);
+        $page = $this->pages->get("template=admin, process=$moduleID, name=" . self::adminPageName);
+        if($page->id) {
+            $this->message("Removed {$page->path}");
+            $this->pages->delete($page);
+        }
+    }
+
+
+}
