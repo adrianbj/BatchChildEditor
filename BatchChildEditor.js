@@ -97,7 +97,7 @@ function childChildTableSortable($table) {
 $(document).ready(function() {
 
     //csv export
-    $('.Inputfield_iframe').hide();
+    //$('.Inputfield_iframe').hide();
     $('.Inputfield_csv_settings').hide();
     $(document).on('click', '.children_export_csv', function(){
         $('#download').attr('src', config.urls.admin+
@@ -118,7 +118,8 @@ $(document).ready(function() {
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
 
     var i=0;
-    $('button.InputfieldChildTableAddRow').click(function() {
+    //$('button.InputfieldChildTableAddRow').click(function() {
+    $(document).on('click', 'button.InputfieldChildTableAddRow', function() {
         i++;
         var $table = $(this).closest('.Inputfield').find('table');
         var $tbody = $table.find('tbody');
@@ -162,8 +163,11 @@ $(document).ready(function() {
         return false;
     });
 
-    $("table.AdminDataTableSortable").each(function() {
-        childChildTableSortable($(this));
+    // make rows sortable - trigger this on first ("one") mouseover of a sort handle in case BCE fieldset is being opened via AJAX
+    $(document).one('mouseover', '.InputfieldChildTableRowSortHandle', function() {
+        $("table.AdminDataTableSortable").each(function() {
+            childChildTableSortable($(this));
+        });
     });
 
     // row deletion
@@ -189,7 +193,8 @@ $(document).ready(function() {
     });
 
     //Add or remove "Title" label from Text/Paste CSV textarea if user changes ignore first row setting
-     $('#Inputfield_userIgnoreFirstRow').change(function() {
+    //$('#Inputfield_userIgnoreFirstRow').change(function() {
+    $(document).on('change', '#Inputfield_userIgnoreFirstRow', function() {
         var initialAddText = $('textarea[name=childPagesAdd]').val();
         var initialUpdateText = $('textarea[name=childPagesUpdate]').val();
         var initialReplaceText = $('textarea[name=childPagesReplace]').val();
