@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 89,
+            'version' => 90,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -87,6 +87,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "fieldPairings" => "",
                 "trashOrDelete" => "trash",
                 "position" => "bottom",
+                "insertAfterField" => array(),
                 "tabName" => "Batch Child Editor",
                 "disableContentProtection" => "",
                 "allowTemplateChanges" => "",
@@ -160,8 +161,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //Make sure at least one edit mode has been selected in the config
         if(count($currentData['editModes']) == 0) return;
 
+        if($currentData['position'] == 'inlineFieldset') {
+            $this->addHookAfter('ProcessPageEdit::buildFormContent', $this, 'addInlineFieldset');
+        }
         //if position is "new tab" we also need to check that the template family settings allow the page to have children
-        if($currentData['position'] == 'newTab' && !$this->editedPage->template->noChildren) {
+        elseif($currentData['position'] == 'newTab' && !$this->editedPage->template->noChildren) {
             $this->addHookAfter('ProcessPageEdit::buildFormContent', $this, 'addNewTab');
         }
         else {
@@ -283,6 +287,25 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     }
 
 
+    public function addInlineFieldset(HookEvent $event){
+
+        $pp = $event->object->getPage();
+        $form = $event->return;
+
+        //populate currentData with pageSettings version if page has specific settings
+        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        $childEditSet = $this->createChildEditSet($pp, $form);
+        $fn = (string) wire('fields')->get($currentData['insertAfterField'])->name;
+        if($form->get($fn)) {
+            $form->insertAfter($childEditSet,  $form->get($fn));
+        }
+        else {
+            $this->error($this->_("Insert After field '".$fn."' does not exist in this template. Check the settings for Batch Child Editor."));
+        }
+    }
+
+
     public function addChildEditFieldset(HookEvent $event){
 
         $pp = $event->object->getPage();
@@ -369,7 +392,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
         if($currentData['position'] != 'newTab' && !$this->input->get->s) $childEditSet->collapsed = $currentData['loadOpen'] ? '' : ($currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
-        $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $childEditSet->label = __('Batch Editor / Creator');
+        $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $childEditSet->label = $currentData['tabName'];
 
         if(count($currentData['editModes'])>1){
             $f = $this->modules->get("InputfieldRadios");
@@ -726,8 +749,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             $this->modules->get('JqueryCore')->use('iframe-resizer');
             $f = $this->modules->get('InputfieldMarkup');
-            $f->label = $this->_('List Children');
-            //$f->collapsed = Inputfield::collapsedYesAjax;
             $f->markupFunction = function($inputfield) use($pp, $currentData) {
                 // bookmarks for Lister
                 $inputfield->wire('modules')->includeModule('ProcessPageLister');
@@ -1935,20 +1956,35 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f = wire('modules')->get("InputfieldRadios");
     $f->attr('name', 'position');
     $f->label = __('Position');
-    $f->columnWidth = 33;
-    $f->description = __('Where to position the Batch Child Editor tool. Replace will remove the existing page tree. New Tab will put this editor in a new tab.');
+    $f->columnWidth = 20;
+    $f->description = __('Where to position the Batch Child Editor tool. Replace will remove the existing page tree. New Tab will put this editor in a new tab. Inline Fieldset will add the editor to the Content tab.');
     $f->addOption("top","Top");
     $f->addOption("bottom","Bottom");
     $f->addOption("replace","Replace");
     $f->addOption("newTab","New Tab");
+    $f->addOption("inlineFieldset","Inline Fieldset");
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['position'] : $data['position'];
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldSelect");
+    $f->required = true;
+    $f->attr('name', 'insertAfterField');
+    $f->showIf = "position=inlineFieldset";
+    $f->requireIf = "position=inlineFieldset";
+    $f->label = __('Insert After');
+    $f->columnWidth = 20;
+    $f->description = __('Choose the field you want to insert the edit fieldset after.');
+    foreach(wire('fields') as $field) {
+        $f->addOption(wire('fields')->get($field)->id, wire('fields')->get($field)->name);
+    }
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['insertAfterField'] : $data['insertAfterField'];
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'loadOpen');
     $f->label = __('Load open, not collapsed');
     $f->showIf = "position!=newTab";
-    $f->columnWidth = 34;
+    $f->columnWidth = 20;
     $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
     $fieldset->add($f);
@@ -1958,7 +1994,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->attr('name', 'openMethod');
         $f->label = __('Open Method');
         $f->showIf = "loadOpen=0";
-        $f->columnWidth = 33;
+        $f->columnWidth = 20;
         $f->description = __('If initially collapsed, how should it be opened?');
         $f->notes = __('AJAX can be useful to improve performance of the page editor for page trees with a lot of children. Especially useful if you are using the "New Tab" position option.');
         $f->addOption("normal","Normal");
@@ -1969,12 +2005,10 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $f = wire('modules')->get("InputfieldText");
     $f->attr('name', 'tabName');
-    $f->label = __('Tab name');
-    $f->showIf = "position=newTab";
+    $f->label = __('Tab / fieldset name');
     $f->required = 1;
-    $f->requiredIf = "position=newTab";
-    $f->columnWidth = 33;
-    $f->description = __('Name for the new tab.');
+    $f->columnWidth = 20;
+    $f->description = __('Name for the tab / fieldset.');
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['tabName'] : $data['tabName'];
     $fieldset->add($f);
 
