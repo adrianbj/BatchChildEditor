@@ -1761,8 +1761,14 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     foreach($data['systemFields'] as $systemField => $systemFieldLabel) {
         $f->addOption($systemField, $systemFieldLabel);
     }
+    //get the right language label
+    $lang = wire('user')->language;
+    $label = 'label';
+    if (wire('user')->language->title != 'default'){
+        $label = "label{$lang}";
+    }
     foreach(wire('fields') as $field) {
-        $f->addOption($field->name, $field->label ? $field->label : $field->name);
+        $f->addOption($field->name, $field->$label ? $field->$label : $field->name);
     }
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['listerColumns'] : $data['listerColumns'];
     $fieldset->add($f);
