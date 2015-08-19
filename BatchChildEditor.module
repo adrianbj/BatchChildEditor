@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 91,
+            'version' => 92,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -302,12 +302,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
 
         $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
-        $fn = (string) wire('fields')->get($currentData['insertAfterField'])->name;
-        if($form->get($fn)) {
+        if($currentData['insertAfterField']) $fn = (string) wire('fields')->get($currentData['insertAfterField'])->name;
+        if(isset($fn) && $form->get($fn)) {
             $form->insertAfter($childEditSet,  $form->get($fn));
         }
         else {
-            $this->error($this->_("Insert After field '".$fn."' does not exist in this template. Check the settings for Batch Child Editor."));
+            $form->append($childEditSet);
         }
     }
 
@@ -2008,13 +2008,13 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldSelect");
-    $f->required = true;
     $f->attr('name', 'insertAfterField');
     $f->showIf = "position=inlineFieldset";
     $f->requireIf = "position=inlineFieldset";
     $f->label = __('Insert After');
     $f->columnWidth = 20;
     $f->description = __('Choose the field you want to insert the edit fieldset after.');
+    $f->notes = __('If none selected, it will be appended to the end of the Content tab.');
     foreach(wire('fields') as $field) {
         $f->addOption(wire('fields')->get($field)->id, wire('fields')->get($field)->name);
     }
