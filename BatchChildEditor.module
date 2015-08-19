@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 90,
+            'version' => 91,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -36,6 +36,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      */
     protected $data = array();
     protected $childPages = '';
+    protected $allowedTemplatesEdit = null;
+    protected $allowedTemplatesAdd = null;
 
    /**
      * Default configuration for module
@@ -62,6 +64,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 ),
                 "enabledTemplates" => array(),
                 "enabledPages" => array(),
+                "parentPage" => array(),
                 "configurablePages" => array(),
                 "editModes" => array("edit"),
                 "defaultMode" => "",
@@ -69,6 +72,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "allowOverrideOverwriteNames" => "",
                 "listerColumns" => array('title', 'path', 'modified', 'modified_users_id'),
                 "defaultFilter" => "",
+                "listerConfigurable" => 1,
                 "loadOpen" => "",
                 "openMethod" => "",
                 "csvOptions" => array(),
@@ -295,7 +299,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
-        $childEditSet = $this->createChildEditSet($pp, $form);
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
+
+        $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
         $fn = (string) wire('fields')->get($currentData['insertAfterField'])->name;
         if($form->get($fn)) {
             $form->insertAfter($childEditSet,  $form->get($fn));
@@ -314,7 +320,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
-        $childEditSet = $this->createChildEditSet($pp, $form);
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
+
+        $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
 
         if($currentData['position'] == 'top') $form->prepend($childEditSet);
         elseif ($currentData['position'] == 'replace') {
@@ -335,8 +343,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
+
         //build the content of the tab
-        $childEditSet = $this->createChildEditSet($pp, $form);
+        $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
 
         //old approach - works, but prevents being able to position the tab anywhere but after the View tab
         //if going back to this approach, then need to change the hook that calls this method to ProcessPageEdit::buildForm
@@ -365,10 +375,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     }
 
 
-    public function createChildEditSet($pp, $form) {
+    public function createChildEditSet($pp, $settingsPage, $form) {
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $currentData = in_array($settingsPage->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$settingsPage->id]) && $this->data['pageSettings'][$settingsPage->id] ? $this->data['pageSettings'][$settingsPage->id] : $this->data;
+
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
 
         //get user CSV setting overrides if allowed
         if(isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings']) {
@@ -392,7 +404,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
         if($currentData['position'] != 'newTab' && !$this->input->get->s) $childEditSet->collapsed = $currentData['loadOpen'] ? '' : ($currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
-        $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $childEditSet->label = $currentData['tabName'];
+        $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $currentData['tabName'];
 
         if(count($currentData['editModes'])>1){
             $f = $this->modules->get("InputfieldRadios");
@@ -762,7 +774,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     'editOption' => 2,
                 );
                 $id = "bce_".(int)wire('input')->get->id."_children";
-                $url = ProcessPageLister::addSessionBookmark($id, $bookmark) . '&modal=inline&minimal=0';
+                $url = ProcessPageLister::addSessionBookmark($id, $bookmark) . '&modal=inline&minimal='.($currentData['listerConfigurable'] ? '0' : '1');
                 if($url) return "
                     <iframe id='BatchChildEditorPageLister' scrolling='no' style='width:100%; border: none;' src='$url'></iframe>
                     <script>
@@ -933,6 +945,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
 
         //get user CSV setting overrides if allowed
         if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
@@ -1132,6 +1146,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
 
         //get user CSV setting overrides if allowed
         if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
@@ -1363,14 +1379,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      * Returns an array of templates that are allowed to be used here
      *
      */
-    protected function getAllowedTemplatesEdit() {
+    protected function getAllowedTemplatesEdit($cp) {
 
-        if(is_array($this->allowedTemplates)) return $this->allowedTemplates;
+        if(is_array($this->allowedTemplatesEdit)) return $this->allowedTemplatesEdit;
 
         $templates = array();
         $user = $this->wire('user');
         $isSuperuser = $user->isSuperuser();
-        $page = $this->masterPage ? $this->masterPage : $this->page;
+        $page = $cp;
         $parent = $page->parent;
         $parentEditable = ($parent->id && $parent->editable());
 
@@ -1379,7 +1395,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         // check if they even have permission to change it
         if(!$user->hasPermission('page-template', $page) || $page->template->noChangeTemplate) {
-            $this->allowedTemplates = $templates;
+            $this->allowedTemplatesEdit = $templates;
             return $templates;
         }
 
@@ -1425,7 +1441,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
         }
 
-        $this->allowedTemplates = $templates;
+        $this->allowedTemplatesEdit = $templates;
         return $templates;
     }
 
@@ -1439,7 +1455,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if($id == $cp->template->id) return true;
 
         // if we've made it this far, then get a list of templates that are allowed...
-        $templates = $this->getAllowedTemplatesEdit();
+        $templates = $this->getAllowedTemplatesEdit($cp);
 
         // ...and determine if the supplied template is in that list
         return isset($templates[$id]);
@@ -1451,9 +1467,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      *
      */
     protected function getAllowedTemplatesAdd($parent) {
-
-        if(is_array($this->allowedTemplates)) return $this->allowedTemplates;
-
+        if(is_array($this->allowedTemplatesAdd)) return $this->allowedTemplatesAdd;
         $user = $this->wire('user');
         $templates = array();
         $allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates');
@@ -1534,7 +1548,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
         }
 
-        $this->allowedTemplates = $templates;
+        $this->allowedTemplatesAdd = $templates;
 
         return $templates;
     }
@@ -1710,10 +1724,23 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
 
     $fieldset = wire('modules')->get("InputfieldFieldset");
     $fieldset->attr('id', 'batch_child_editor_data_protection_fieldset');
-    $fieldset->label = __("Content Deletion / Protection");
+    $fieldset->label = __("Content / Deletion / Protection");
     $fieldset->showIf = "editModes=edit|add|update|replace";
     $fieldset->collapsed = Inputfield::collapsedYes;
     $wrapper->add($fieldset);
+
+    //only for page context settings, NOT module config settings
+    if(wire('input')->get->id) {
+        $f = wire('modules')->get("InputfieldPageListSelect");
+        $f->attr('name', 'parentPage');
+        $f->label = __('Parent Page');
+        //$f->showIf = "editModes=replace|edit";
+        $f->columnWidth = 100;
+        $f->description = __('If selected, the editable children will be from this parent instead.');
+        //$f->notes = __("");
+        $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['parentPage'] : $data['parentPage'];
+        $fieldset->add($f);
+    }
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'disableContentProtection');
@@ -1780,6 +1807,14 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->description = __('Which filters will be applied by default.');
     $f->notes = __('These filters will be in addition to limiting the results to the child of the current page.');
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['defaultFilter'] : $data['defaultFilter'];
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'listerConfigurable');
+    $f->label = __('Allow Lister Configuration');
+    $f->showIf = "editModes=lister";
+    $f->description = __('If checked, the user will be able to configure the Filters, Columns, and use Actions.');
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['listerConfigurable'] : $data['listerConfigurable']) ? 'checked' : '' );
     $fieldset->add($f);
 
     $fieldset = wire('modules')->get("InputfieldFieldset");

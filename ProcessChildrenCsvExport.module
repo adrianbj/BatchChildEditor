@@ -89,6 +89,9 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
         //if settings not supplied, use defaults from page or module config settings
         $currentData = in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
+
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
+
         $delimiter = $delimiter ? $delimiter : $currentData['csvExportFieldSeparator'];
         $enclosure = $enclosure ? $enclosure : $currentData['csvExportFieldEnclosure'];
         $extension = $extension ? $extension : $currentData['csvExportExtension'];
