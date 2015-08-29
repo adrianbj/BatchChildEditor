@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 92,
+            'version' => 93,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1791,7 +1791,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     //get the right language label
     $lang = wire('user')->language;
     $label = 'label';
-    if (wire('user')->language->title != 'default'){
+    if (wire('modules')->isInstalled("LanguageSupport") && wire('user')->language->title != 'default'){
         $label = "label{$lang}";
     }
     foreach(wire('fields') as $field) {
