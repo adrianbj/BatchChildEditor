@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 93,
+            'version' => 94,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -361,7 +361,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $this->modules->get('FieldtypeFieldsetTabOpen');
         $field = new InputfieldFieldsetTabOpen;
-        $field->name = $this->sanitizer->pageName($currentData['tabName'],true);
+        $field->name = $this->sanitizer->fieldName($currentData['tabName']);
         if(!$this->input->get->s) $field->collapsed = $currentData['loadOpen'] ? '' : ($currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
         $field->label = $currentData['tabName'];
         $form->add($field);
@@ -370,7 +370,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $this->modules->get('FieldtypeFieldsetClose');
         $field = new InputfieldFieldsetClose;
-        $field->name = $this->sanitizer->pageName($currentData['tabName'],true)."_END";
+        $field->name = $this->sanitizer->fieldName($currentData['tabName'])."_END";
         $form->add($field);
     }
 
