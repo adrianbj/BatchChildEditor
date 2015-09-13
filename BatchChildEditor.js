@@ -114,6 +114,83 @@ $(document).ready(function() {
     });
 
 
+    /**
+     * Add toggle controls to column headers (check/uncheck all)
+     * by tpr 2015-09-13
+     */
+
+    var isBceTabLoaded = 0,
+        bce_adminDataTableSelector = '.childChildTableContainer .AdminDataTable',
+        bce_columnControlClass = 'bce-column-toggle',
+        bce_allowedColumnControls = ['input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
+        bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="margin-right: 5px;" />';
+
+    /**
+     * Add event on column toggle checkboxes.
+     *
+     * @param bce_adminDataTableSelector
+     * @param currentControl
+     * @param index
+     */
+
+    var addColumnControlEvent = function (bce_adminDataTableSelector, currentControl, index) {
+
+        var currentColumnControlSelector = bce_adminDataTableSelector + ' thead th:eq(' + index + ') .' + bce_columnControlClass,
+            eventType = 'change';
+
+        $(currentColumnControlSelector).on(eventType, function () {
+
+            var currentColumnControl = $(currentColumnControlSelector),
+                toggleState = currentColumnControl.is(':checked');
+
+            $(bce_adminDataTableSelector + ' tbody tr').each(function () {
+
+                var currentItem = $(this).find('td:eq(' + index + ') ' + currentControl);
+
+                // toggle checkboxes state or trigger clicks
+                if (currentItem.is('input')) {
+                    currentItem.prop('checked', toggleState);
+
+                } else if (currentItem.is('i')) {
+                    currentItem.trigger('click');
+                }
+            });
+        });
+    };
+
+    $(document).on('wiretabclick', function ($event, $newTab, $oldTab) {
+
+        if ($newTab.attr('id') == "ProcessPageEditChildren") {
+
+            isBceTabLoaded++;
+
+            // somehow only on the 2nd iteration gets the tab loaded
+            if (isBceTabLoaded == 2) {
+
+                if ($(bce_adminDataTableSelector).length) {
+
+                    // add new controls
+                    for (var i = 0; i < bce_allowedColumnControls.length; i++) {
+
+                        var currentControl = bce_allowedColumnControls[i];
+
+                        // get index of first checkbox in the first row
+                        var index = $(bce_adminDataTableSelector + ' ' + currentControl + ':eq(0)').parent().index(),
+                            hideToggleStatus = true;
+
+                        // do the add
+                        $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
+
+                        // set event
+                        addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
+                    }
+                }
+            }
+        }
+    });
+
+    // End of adding toggle controls to column headers
+
 
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
 
