@@ -112,7 +112,121 @@ $(document).ready(function() {
         );
         return false;
     });
+    
+    
+    /**
+     * Add toggle controls to column headers (check/uncheck all items in a column)
+     *
+     * @author tpr
+     * @updated 2015-09-14
+     */
 
+    var bce_adminDataTableSelector = '.childChildTableContainer .AdminDataTable',
+        bce_columnControlClass = 'bce-column-toggle',
+        bce_allowedColumnControls = ['input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
+        bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="position: relative; top: 2px; margin-right: 4px;" />',
+        bce_controlEventType = 'change',
+        bce_tabID = "Inputfield_Batch_Child_Editor",
+        bce_fieldID = "ProcessPageEditChildren",
+        bce_fieldsetID = "Inputfield_child_batch_editor",
+        bce_isColumnControlsAdded = false;
+
+    // add column controls (top, bottom and replace modes)
+    $(document).on('reloaded', '#' + bce_fieldID, function () {
+        addBceColumnControls();
+    });
+
+    // add column controls (inline fieldset mode)
+    if ($('#' + bce_fieldsetID).is(':visible')) {
+        addBceColumnControls();
+    }
+
+    // add column controls (new tab mode)
+    $(document).on('wiretabclick', function ($event, $newTab) {
+        if ($newTab.attr('id') == bce_tabID) {
+            addBceColumnControls();
+        }
+    });
+
+    /**
+     * Add control toggle checkboxes to BCE table
+     *
+     * @returns {boolean}
+     */
+    function addBceColumnControls() {
+
+        if (bce_isColumnControlsAdded) {
+            return false;
+        }
+
+        if ($(bce_adminDataTableSelector).length === 0) {
+            return false;
+        }
+
+        // do not add controls if there is no more than 1 row
+        if ($(bce_adminDataTableSelector + ' tbody tr').length <= 1) {
+            return false;
+        }
+
+        // add new controls
+        for (var i = 0; i < bce_allowedColumnControls.length; i++) {
+
+            var currentControl = bce_allowedColumnControls[i];
+
+            // skip non-existing elements
+            if (!$(currentControl).length) {
+                continue;
+            }
+
+            // get index of first checkbox in the first row
+            var index = $(bce_adminDataTableSelector + ' ' + currentControl + ':eq(0)').parent().index();
+
+            // do the add
+            $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
+
+            // add event
+            addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
+        }
+
+        // disable thead break to multiline
+        $(bce_adminDataTableSelector + ' thead').css('white-space', 'nowrap');
+
+        bce_isColumnControlsAdded = true;
+
+        return true;
+    }
+
+    /**
+     * Add event on column toggle checkboxes.
+     *
+     * @param bce_adminDataTableSelector
+     * @param currentControl
+     * @param index
+     */
+    function addColumnControlEvent(bce_adminDataTableSelector, currentControl, index) {
+
+        var currentColumnControlSelector = bce_adminDataTableSelector + ' thead th:eq(' + index + ') .' + bce_columnControlClass;
+
+        $(currentColumnControlSelector).on(bce_controlEventType, function () {
+
+            var currentColumnControl = $(currentColumnControlSelector),
+                toggleState = currentColumnControl.is(':checked');
+
+            $(bce_adminDataTableSelector + ' tbody tr').each(function () {
+
+                var currentItem = $(this).find('td:eq(' + index + ') ' + currentControl);
+
+                // toggle checkboxes state or trigger clicks
+                if (currentItem.is('input')) {
+                    currentItem.prop('checked', toggleState);
+
+                } else if (currentItem.is('i')) {
+                    currentItem.trigger('click');
+                }
+            });
+        });
+    }
+    // End of adding toggle controls to column headers
 
 
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
