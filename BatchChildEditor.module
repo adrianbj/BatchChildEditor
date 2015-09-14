@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 95,
+            'version' => 96,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -663,7 +663,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 __('Edit'),
                 __('Delete')
             ));
-            $table->setSortable(true);
+            $table->setSortable(false);
             $table->setEncodeEntities(false);
 
             //Build the table
@@ -768,6 +768,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $bookmark = array(
                     'initSelector' => "",
                     'defaultSelector' => "parent={$pp->id}, include=all{$customDefaultFilter}",
+                    'defaultSort' => 'sort',
                     'columns' => $currentData['listerColumns'],
                     'toggles' => array('noButtons'),
                     'viewMode' => 4,
