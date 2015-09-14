@@ -114,7 +114,7 @@ $(document).ready(function() {
     });
     
     
-    /**
+        /**
      * Add toggle controls to column headers (check/uncheck all items in a column)
      *
      * @author tpr
@@ -126,9 +126,10 @@ $(document).ready(function() {
         bce_allowedColumnControls = ['input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
         bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="position: relative; top: 2px; margin-right: 4px;" />',
         bce_controlEventType = 'change',
-        bce_tabID = "Inputfield_Batch_Child_Editor",
-        bce_fieldID = "ProcessPageEditChildren",
-        bce_fieldsetID = "Inputfield_child_batch_editor",
+        bce_tabID = 'Inputfield_Batch_Child_Editor',
+        bce_fieldID = 'ProcessPageEditChildren',
+        bce_fieldsetID = 'Inputfield_child_batch_editor',
+        bce_deletedRowClass = 'InputfieldChildTableRowDeleted',
         bce_isColumnControlsAdded = false;
 
     // add column controls (top, bottom and replace modes)
@@ -214,14 +215,23 @@ $(document).ready(function() {
 
             $(bce_adminDataTableSelector + ' tbody tr').each(function () {
 
-                var currentItem = $(this).find('td:eq(' + index + ') ' + currentControl);
+                var currentRow = $(this),
+                    currentItem = currentRow.find('td:eq(' + index + ') ' + currentControl);
 
                 // toggle checkboxes state or trigger clicks
                 if (currentItem.is('input')) {
                     currentItem.prop('checked', toggleState);
 
                 } else if (currentItem.is('i')) {
-                    currentItem.trigger('click');
+                    if (toggleState) {
+                        if (!currentRow.hasClass(bce_deletedRowClass)) {
+                            currentItem.trigger('click');
+                        }
+                    } else {
+                        if (currentRow.hasClass(bce_deletedRowClass)) {
+                            currentItem.trigger('click');
+                        }
+                    }
                 }
             });
         });
