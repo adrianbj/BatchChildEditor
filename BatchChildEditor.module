@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 96,
+            'version' => 97,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -70,6 +70,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "defaultMode" => "",
                 "overwriteNames" => "",
                 "allowOverrideOverwriteNames" => "",
+                "listerDefaultSort" => "sort",
                 "listerColumns" => array('title', 'path', 'modified', 'modified_users_id'),
                 "defaultFilter" => "",
                 "listerConfigurable" => 1,
@@ -768,7 +769,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $bookmark = array(
                     'initSelector' => "",
                     'defaultSelector' => "parent={$pp->id}, include=all{$customDefaultFilter}",
-                    'defaultSort' => 'sort',
+                    'defaultSort' => $currentData['listerDefaultSort'],
                     'columns' => $currentData['listerColumns'],
                     'toggles' => array('noButtons'),
                     'viewMode' => 4,
@@ -1780,6 +1781,28 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $fieldset->showIf = "editModes=lister";
     $fieldset->collapsed = Inputfield::collapsedYes;
     $wrapper->add($fieldset);
+
+
+    $f = wire('modules')->get('InputfieldSelect');
+    $f->attr('name', 'listerDefaultSort');
+    $f->label = __('Default Sort Order');
+    $options = array();
+    $sortColumns = array('id', 'name', 'title', 'modified', 'created', 'sort', 'template');
+    foreach($sortColumns as $name) {
+        $label = $name;
+        $options[$name] = $label;
+    }
+    $f->addOption(__('Ascending'), $options);
+    $labels = $options;
+    foreach($options as $name => $label) {
+        $options["-$name"] = $label;
+        unset($options[$name]);
+    }
+    $f->addOption(__('Descending'), $options);
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['listerDefaultSort'] : $data['listerDefaultSort'];
+    $f->icon = 'sort-alpha-asc';
+    $fieldset->add($f);
+
 
     $f = wire('modules')->get("InputfieldAsmSelect");
     $f->attr('name', 'listerColumns');
