@@ -97,7 +97,7 @@ function childChildTableSortable($table) {
 $(document).ready(function() {
 
     //csv export
-    //$('.Inputfield_iframe').hide();
+    $('.Inputfield_iframe').hide();
     $('.Inputfield_csv_settings').hide();
     $(document).on('click', '.children_export_csv', function(){
         $('#download').attr('src', config.urls.admin+
@@ -114,11 +114,11 @@ $(document).ready(function() {
     });
 
 
-        /**
+    /**
      * Add toggle controls to column headers (check/uncheck all items in a column)
      *
      * @author tpr
-     * @updated 2015-09-14
+     * @updated 2015-09-15
      */
 
     var bce_adminDataTableSelector = '.childChildTableContainer .AdminDataTable',
@@ -150,7 +150,28 @@ $(document).ready(function() {
     });
 
     /**
-     * Add control toggle checkboxes to BCE table
+     * Set column header checkbox state based on all items of the column.
+     *
+     * @param $obj jQuery object
+     */
+    function setColumnControlStates($obj) {
+
+        var elem = $obj.is('input') ? 'input' : 'i',
+            index = $obj.parent('td, th').index(),
+            columnControl = $(bce_adminDataTableSelector + ' th:eq(' + index + ') input'),
+            columnItems = $(bce_adminDataTableSelector).find('td:nth-child(' + parseInt(index + 1) + ')'),
+            checkedItems = (elem == 'input') ? columnItems.find(':checked') : $(bce_adminDataTableSelector).find('.' + bce_deletedRowClass),
+            allItems = columnItems.find(elem);
+
+        if (checkedItems.length !== 0 && checkedItems.length === allItems.length) {
+            columnControl.prop('checked', 1);
+        } else {
+            columnControl.prop('checked', 0);
+        }
+    }
+
+    /**
+     * Add control toggle checkboxes to BCE table.
      *
      * @returns {boolean}
      */
@@ -169,6 +190,11 @@ $(document).ready(function() {
             return false;
         }
 
+        //$(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"], i.InputfieldChildTableRowDeleteLink', function () {
+        $(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"]', function () {
+            setColumnControlStates($(this));
+        });
+
         // add new controls
         for (var i = 0; i < bce_allowedColumnControls.length; i++) {
 
@@ -185,6 +211,9 @@ $(document).ready(function() {
             // do the add
             $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
 
+            // set initial checkbox states
+            setColumnControlStates($(bce_adminDataTableSelector + ' th:eq(' + index + ') input'));
+
             // add event
             addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
         }
@@ -196,6 +225,7 @@ $(document).ready(function() {
 
         return true;
     }
+
 
     /**
      * Add event on column toggle checkboxes.
@@ -225,25 +255,25 @@ $(document).ready(function() {
                 } else if (currentItem.is('i')) {
                     if (toggleState) {
                         if (!currentRow.hasClass(bce_deletedRowClass)) {
-                            currentItem.trigger('click');
+                            currentItem.trigger('bce-delete-row');
                         }
                     } else {
                         if (currentRow.hasClass(bce_deletedRowClass)) {
-                            currentItem.trigger('click');
+                            currentItem.trigger('bce-delete-row');
                         }
                     }
                 }
             });
         });
     }
-    // End of adding toggle controls to column headers
+
+    // End of adding toggle controls to column headers.
 
 
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
 
     var i=0;
-    //$('button.InputfieldChildTableAddRow').click(function() {
-    $(document).on('click', 'button.InputfieldChildTableAddRow', function() {
+    $('button.InputfieldChildTableAddRow').click(function() {
         i++;
         var $table = $(this).closest('.Inputfield').find('table');
         var $tbody = $table.find('tbody');
@@ -287,16 +317,13 @@ $(document).ready(function() {
         return false;
     });
 
-    // make rows sortable - trigger this on first ("one") mouseover of a sort handle in case BCE fieldset is being opened via AJAX
-    $(document).one('mouseover', '.InputfieldChildTableRowSortHandle', function() {
-        $("table.AdminDataTable").each(function() {
-            childChildTableSortable($(this));
-        });
+    $("table.AdminDataTableSortable").each(function() {
+        childChildTableSortable($(this));
     });
 
     // row deletion
     var deleteIds;
-    $(document).on('click', '.InputfieldChildTableRowDeleteLink', function() {
+    $(document).on('click bce-delete-row', '.InputfieldChildTableRowDeleteLink', function() {
         var $row = $(this).closest('tr');
         var $input = $('.InputfieldChildTableRowDelete');
 
@@ -314,11 +341,12 @@ $(document).ready(function() {
             deleteIds = $input.val() + $row.find("td:eq(1)").find("input").attr("id") + ',';
             $input.val(deleteIds);
         }
+        
+        setColumnControlStates($(this));
     });
 
     //Add or remove "Title" label from Text/Paste CSV textarea if user changes ignore first row setting
-    //$('#Inputfield_userIgnoreFirstRow').change(function() {
-    $(document).on('change', '#Inputfield_userIgnoreFirstRow', function() {
+    $('#Inputfield_userIgnoreFirstRow').change(function() {
         var initialAddText = $('textarea[name=childPagesAdd]').val();
         var initialUpdateText = $('textarea[name=childPagesUpdate]').val();
         var initialReplaceText = $('textarea[name=childPagesReplace]').val();
