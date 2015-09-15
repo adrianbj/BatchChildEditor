@@ -116,57 +116,116 @@ $(document).ready(function() {
 
     /**
      * Add toggle controls to column headers (check/uncheck all items in a column)
-     * by tpr 2015-09-13
+     *
+     * @author tpr
+     * @updated 2015-09-15
      */
 
-    var isBceTabLoaded = 0,
-        bce_adminDataTableSelector = '.childChildTableContainer .AdminDataTable',
+    var bce_adminDataTableSelector = '.childChildTableContainer .AdminDataTable',
         bce_columnControlClass = 'bce-column-toggle',
         bce_allowedColumnControls = ['input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
-        bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="position: relative; top: 2px; margin-right: 5px;" />',
+        bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="position: relative; top: 2px; margin-right: 4px;" />',
         bce_controlEventType = 'change',
+        bce_tabID = 'Inputfield_Batch_Child_Editor',
+        bce_fieldID = 'ProcessPageEditChildren',
+        bce_fieldsetID = 'Inputfield_child_batch_editor',
+        bce_deletedRowClass = 'InputfieldChildTableRowDeleted',
         bce_isColumnControlsAdded = false;
 
-    $(document).on('wiretabclick', function ($event, $newTab, $oldTab) {
+    // add column controls (top, bottom and replace modes)
+    $(document).on('reloaded', '#' + bce_fieldID, function () {
+        addBceColumnControls();
+    });
 
-        if (!bce_isColumnControlsAdded && $newTab.attr('id') == "ProcessPageEditChildren") {
+    // add column controls (inline fieldset mode)
+    if ($('#' + bce_fieldsetID).is(':visible')) {
+        addBceColumnControls();
+    }
 
-            // tab loading timeout hack
-            setTimeout(function () {
-
-                // do not add controls if there is no more than 1 row
-                if ($(bce_adminDataTableSelector + ' tbody tr').length <= 1) {
-                    return false;
-                }
-
-                if ($(bce_adminDataTableSelector).length) {
-
-                    // add new controls
-                    for (var i = 0; i < bce_allowedColumnControls.length; i++) {
-
-                        // skip non-existing elements
-                        if (!$(bce_allowedColumnControls[i]).length) {
-                            continue;
-                        }
-
-                        var currentControl = bce_allowedColumnControls[i];
-
-                        // get index of first checkbox in the first row
-                        var index = $(bce_adminDataTableSelector + ' ' + currentControl + ':eq(0)').parent().index();
-
-                        // do the add
-                        $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
-
-                        // set event
-                        addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
-                    }
-                }
-
-                bce_isColumnControlsAdded = true;
-
-            }, 0);
+    // add column controls (new tab mode)
+    $(document).on('wiretabclick', function ($event, $newTab) {
+        if ($newTab.attr('id') == bce_tabID) {
+            addBceColumnControls();
         }
     });
+
+    /**
+     * Set column header checkbox state based on all items of the column.
+     *
+     * @param $obj jQuery object
+     */
+    function setColumnControlStates($obj) {
+
+        var elem = $obj.is('input') ? 'input' : 'i',
+            index = $obj.parent('td, th').index(),
+            columnControl = $(bce_adminDataTableSelector + ' th:eq(' + index + ') input'),
+            columnItems = $(bce_adminDataTableSelector).find('td:nth-child(' + parseInt(index + 1) + ')'),
+            checkedItems = (elem == 'input') ? columnItems.find(':checked') : $(bce_adminDataTableSelector).find('.' + bce_deletedRowClass),
+            allItems = columnItems.find(elem);
+
+        if (checkedItems.length !== 0 && checkedItems.length === allItems.length) {
+            columnControl.prop('checked', 1);
+        } else {
+            columnControl.prop('checked', 0);
+        }
+    }
+
+    /**
+     * Add control toggle checkboxes to BCE table.
+     *
+     * @returns {boolean}
+     */
+    function addBceColumnControls() {
+
+        if (bce_isColumnControlsAdded) {
+            return false;
+        }
+
+        if ($(bce_adminDataTableSelector).length === 0) {
+            return false;
+        }
+
+        // do not add controls if there is no more than 1 row
+        if ($(bce_adminDataTableSelector + ' tbody tr').length <= 1) {
+            return false;
+        }
+
+        //$(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"], i.InputfieldChildTableRowDeleteLink', function () {
+        $(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"]', function () {
+            setColumnControlStates($(this));
+        });
+
+        // add new controls
+        for (var i = 0; i < bce_allowedColumnControls.length; i++) {
+
+            var currentControl = bce_allowedColumnControls[i];
+
+            // skip non-existing elements
+            if (!$(currentControl).length) {
+                continue;
+            }
+
+            // get index of first checkbox in the first row
+            var index = $(bce_adminDataTableSelector + ' ' + currentControl + ':eq(0)').parent().index();
+
+            // do the add
+            $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
+
+            // set initial checkbox states
+            setColumnControlStates($(bce_adminDataTableSelector + ' th:eq(' + index + ') input'));
+
+            // add event
+            addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
+        }
+
+        // disable thead break to multiline
+        $(bce_adminDataTableSelector + ' thead').css('white-space', 'nowrap');
+
+        bce_isColumnControlsAdded = true;
+
+        return true;
+    }
+
 
     /**
      * Add event on column toggle checkboxes.
@@ -186,20 +245,29 @@ $(document).ready(function() {
 
             $(bce_adminDataTableSelector + ' tbody tr').each(function () {
 
-                var currentItem = $(this).find('td:eq(' + index + ') ' + currentControl);
+                var currentRow = $(this),
+                    currentItem = currentRow.find('td:eq(' + index + ') ' + currentControl);
 
                 // toggle checkboxes state or trigger clicks
                 if (currentItem.is('input')) {
                     currentItem.prop('checked', toggleState);
 
                 } else if (currentItem.is('i')) {
-                    currentItem.trigger('click');
+                    if (toggleState) {
+                        if (!currentRow.hasClass(bce_deletedRowClass)) {
+                            currentItem.trigger('bce-delete-row');
+                        }
+                    } else {
+                        if (currentRow.hasClass(bce_deletedRowClass)) {
+                            currentItem.trigger('bce-delete-row');
+                        }
+                    }
                 }
             });
         });
     }
 
-    // End of adding toggle controls to column headers
+    // End of adding toggle controls to column headers.
 
 
     $(document).on('click', '.childChildTableEdit', childChildTableDialog);
@@ -255,7 +323,7 @@ $(document).ready(function() {
 
     // row deletion
     var deleteIds;
-    $(document).on('click', '.InputfieldChildTableRowDeleteLink', function() {
+    $(document).on('click bce-delete-row', '.InputfieldChildTableRowDeleteLink', function() {
         var $row = $(this).closest('tr');
         var $input = $('.InputfieldChildTableRowDelete');
 
@@ -273,6 +341,8 @@ $(document).ready(function() {
             deleteIds = $input.val() + $row.find("td:eq(1)").find("input").attr("id") + ',';
             $input.val(deleteIds);
         }
+        
+        setColumnControlStates($(this));
     });
 
     //Add or remove "Title" label from Text/Paste CSV textarea if user changes ignore first row setting

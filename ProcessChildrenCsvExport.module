@@ -89,6 +89,9 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
         //if settings not supplied, use defaults from page or module config settings
         $currentData = in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
+
+        if($currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
+
         $delimiter = $delimiter ? $delimiter : $currentData['csvExportFieldSeparator'];
         $enclosure = $enclosure ? $enclosure : $currentData['csvExportFieldEnclosure'];
         $extension = $extension ? $extension : $currentData['csvExportExtension'];
@@ -136,7 +139,14 @@ class ProcessChildrenCsvExport extends Process implements Module {
             foreach($fieldNames as $fieldName){
 
                 //exclude unsupported field types
-                if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' || wire('fields')->$fieldName->type == 'FieldtypeRepeater' || wire('fields')->$fieldName->type == 'FieldtypePageTable')) continue;
+                if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' ||
+                    wire('fields')->$fieldName->type == 'FieldtypeRepeater' ||
+                    wire('fields')->$fieldName->type == 'FieldtypePageTable' ||
+                    wire('fields')->$fieldName->type == 'FieldsetOpen' ||
+                    wire('fields')->$fieldName->type == 'FieldsetClose' ||
+                    wire('fields')->$fieldName->type == 'FieldsetTabOpen' ||
+                    wire('fields')->$fieldName->type == 'FieldsetTabClose'
+                )) continue;
 
                 if(!$p->$fieldName) {
                     $formattedValue = '';
@@ -151,7 +161,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
                 }
                 //Datetime fields
                 elseif((wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeDatetime') || $fieldName == 'created' || $fieldName == 'modified') {
-                    $formattedValue = date("Y-m-d H:i:s", $p->$fieldName);
+                    $formattedValue = date("Y-m-d H:i:s", strtotime($p->$fieldName));
                 }
                 //Page fields
                 elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypePage) {
@@ -164,9 +174,13 @@ class ProcessChildrenCsvExport extends Process implements Module {
                 }
                 //FieldtypeMultiplier and FieldtypeFile
                 elseif(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeMultiplier' || wire('fields')->$fieldName->type instanceof FieldtypeFile)) {
-                    $values = array();
-                    foreach($p->$fieldName as $value) $values[] = $value;
-                    $formattedValue = implode($multipleValuesSeparator, $values);
+                    if(wire('fields')->$fieldName->type instanceof FieldtypeFile) $p->of(false); //formatting off required if output format is "Rendered string of text"
+                    if(count($p->$fieldName)>0) {
+                        $values = array();
+                        foreach($p->$fieldName as $value) $values[] = $value;
+                        $formattedValue = implode($multipleValuesSeparator, $values);
+                    }
+                    $p->of(true);
                 }
                 //All other fields
                 else {
