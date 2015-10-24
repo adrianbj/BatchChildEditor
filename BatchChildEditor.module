@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 100,
+            'version' => 101,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -911,6 +911,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 <input id='Inputfield_multiple_values_separator' type='hidden' value='{$currentData['multipleValuesSeparator']}' />
                 <input id='Inputfield_export_names_first_row' type='hidden' value='{$currentData['columnsFirstRow']}' />
                 ";
+                $f->addClass('InputfieldHidden');
                 $exportFieldset->add($f);
             }
 
