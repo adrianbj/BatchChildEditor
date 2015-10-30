@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 103,
+            'version' => 104,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -2126,14 +2126,17 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['insertAfterField'] : $data['insertAfterField'];
     $fieldset->add($f);
 
-    $f = wire('modules')->get("InputfieldCheckbox");
-    $f->attr('name', 'hideChildren');
-    $f->label = __('Hide Children');
-    $f->columnWidth = 14;
-    $f->description = __('If checked, all children will be removed from the page tree.');
-    $f->notes = __('Use this option if you want to force editing of child pages through BCE.');
-    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['hideChildren'] : $data['hideChildren']) ? 'checked' : '' );
-    $fieldset->add($f);
+    //only for page context settings, NOT module config settings
+    if(wire('input')->get->id) {
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'hideChildren');
+        $f->label = __('Hide Children');
+        $f->columnWidth = 14;
+        $f->description = __('If checked, all children will be removed from the page tree.');
+        $f->notes = __('Use this option if you want to force editing of child pages through BCE.');
+        $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['hideChildren'] : $data['hideChildren']) ? 'checked' : '' );
+        $fieldset->add($f);
+    }
 
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'removeChildrenTab');
