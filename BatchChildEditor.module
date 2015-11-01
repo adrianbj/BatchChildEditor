@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 104,
+            'version' => 105,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -132,6 +132,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
 
     public function init() {
+        if(!$this->user->hasPermission("batch-child-editor")) return;
         $this->addHookAfter("ProcessPageEdit::buildFormChildren", $this, "addScript");
     }
 
@@ -143,11 +144,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     public function ready() {
 
-        if(!$this->user->hasPermission("batch-child-editor")) return;
-
+        //this check ensures it the hook is only added for the main page list, not the list in the children tab
         if($this->input->get->id == 1 && $this->input->get->render=='JSON') {
-            $this->addHookAfter('ProcessPageList::execute', $this, 'pageListHidePages');
-            $this->addHookAfter('Page::numChildren', $this, 'pageListCountPages');
+            $this->addHookAfter('Page::listable', $this, 'pageListCountPages');
         }
 
 
@@ -200,55 +199,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     public function pageListCountPages(HookEvent $event){
 
-        $page = $event->object;
-
-        if($this->ishidden($page, true)) {
-            $event->return = 0;
-        }
-    }
-
-
-    public function pageListHidePages(HookEvent $event){
-
-        // make sure it's an ajax request
-        if($this->config->ajax){
-            // manipulate the json returned and remove any pages found from array
-            $json = json_decode($event->return, true);
-
-            if(count($json) > 0) {
-                foreach($json['children'] as $key => $child){
-                    $c = $this->pages->get($child['id']);
-                    $matchedParent = $this->ishidden($c);
-                    if($matchedParent == '') continue;
-                    unset($json['children'][$key]);
-                }
-                $json['children'] = array_values($json['children']);
-            }
-
-            $event->return = json_encode($json);
-        }
-
-    }
-
-
-    public function ishidden($p, $pageOnly = false) {
-
-        $pagestoHide = array();
-        $matchedParent = "";
-
         foreach($this->data['pageSettings'] as $pid => $pageSettings) {
-            if($pageSettings['hideChildren']) $pagestoHide[] = $pid;
+            if($pageSettings['hideChildren']) $this->pages->get($pid)->set('numChildren', 0);
         }
 
-        $p = $pageOnly ? $p : $p->parent;
-
-        if(in_array($p->id, $pagestoHide)) {
-            // if we have a hidden match for the current page or one of its parents
-            $matchedParent = $p;
-            if(!$pageOnly) break; // we have a match so no need to check other parents
-        }
-
-        return $matchedParent;
     }
 
 
