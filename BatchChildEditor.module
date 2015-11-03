@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 104,
+            'version' => 105,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -814,7 +814,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             if($currentData['allowOverrideCsvExportSettings']) {
 
-                if(isset($this->data['pageSettings'][$pp->id])) {
+                if(isset($this->data['pageSettings'][$settingsPage->id])) {
                     $f = wire('modules')->get("InputfieldAsmSelect");
                     $f->name = "userExportFields";
                     $f->showIf = "edit_mode=export";
@@ -848,7 +848,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         if(!in_array($systemField, $populatedFields)) $f->addOption($systemField, $systemFieldLabel);
                     }
                     $allFields = array();
-                    foreach(wire('pages')->get(wire('input')->get->id)->children as $child) {
+                    foreach($pp->children as $child) {
                         foreach($child->fields as $cf) {
                             if(!in_array($cf, $allFields)) $allFields[] = $cf;
                         }
