@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 107,
+            'version' => 108,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1952,7 +1952,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
             $f->addOption($systemField, $systemFieldLabel);
         }
         $allFields = array();
-        $pp = $data['pageSettings'][$pid]['parentPage'] ? wire('pages')->get($data['pageSettings'][$pid]['parentPage']) : wire('pages')->get(wire('input')->get->id);
+        $pp = isset($data['pageSettings'][$pid]['parentPage']) ? wire('pages')->get($data['pageSettings'][$pid]['parentPage']) : wire('pages')->get(wire('input')->get->id);
         foreach($pp->children as $child) {
             foreach($child->fields as $cf) {
                 if(!in_array($cf, $allFields)) $allFields[] = $cf;
