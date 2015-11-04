@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 108,
+            'version' => 109,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1734,7 +1734,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $fieldset = wire('modules')->get("InputfieldFieldset");
     $fieldset->attr('id', 'batch_child_editor_data_protection_fieldset');
     $fieldset->label = __("Content / Deletion / Protection");
-    $fieldset->showIf = "editModes=edit|add|update|replace";
+    //$fieldset->showIf = "editModes=edit|add|update|replace";
     $fieldset->collapsed = Inputfield::collapsedYes;
     $wrapper->add($fieldset);
 
