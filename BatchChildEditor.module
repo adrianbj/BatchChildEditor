@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 106,
+            'version' => 107,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -833,8 +833,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
                     //populate user override export field list from the page's Settings tab
                     $populatedFields = array();
-                    if(isset($this->data['pageSettings'][$pp->id]['exportFields'])) {
-                        foreach($this->data['pageSettings'][$pp->id]['exportFields'] as $exportField) {
+                    if(isset($this->data['pageSettings'][$settingsPage->id]['exportFields'])) {
+                        foreach($this->data['pageSettings'][$settingsPage->id]['exportFields'] as $exportField) {
                             $populatedFields[] = $exportField;
                             if(isset($fieldLabels[$exportField])) $f->addOption($exportField, $fieldLabels[$exportField]);
                             $f->value = $exportField;
