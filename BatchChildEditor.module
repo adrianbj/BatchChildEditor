@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 109,
+            'version' => 110,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1491,9 +1491,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             // the proper context: when page-publish permission exists, a page not not editable
             // if a user doesn't have page-publish permission to it, even though it may still
             // be editable if it was unpublished.
+            $parent->setTrackChanges(false);
             $parent->addStatus(Page::statusUnpublished);
             $parentEditable = $parent->editable();
             $parent->removeStatus(Page::statusUnpublished);
+            $parent->setTrackChanges(true);
         }
 
         foreach($allTemplates as $t) {
