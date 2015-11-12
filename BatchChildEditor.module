@@ -890,7 +890,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         }
                     }
 
-
                     //all other fields not already populated
                     //system fields
                     foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
