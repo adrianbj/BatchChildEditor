@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 110,
+            'version' => 111,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -74,6 +74,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "listerColumns" => array('title', 'path', 'modified', 'modified_users_id'),
                 "defaultFilter" => "",
                 "listerConfigurable" => 1,
+                "removeChildrenTab" => "",
+                "hideChildren" => "",
                 "loadOpen" => "",
                 "openMethod" => "",
                 "csvOptions" => array(),
@@ -130,18 +132,23 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
 
     public function init() {
+        if(!$this->user->hasPermission("batch-child-editor")) return;
         $this->addHookAfter("ProcessPageEdit::buildFormChildren", $this, "addScript");
     }
 
     public function addScript($event){
         $conf = $this->getModuleInfo();
         $version = (int) $conf['version'];
-         wire("config")->scripts->add($this->config->urls->BatchChildEditor . "BatchChildEditor.js?v={$version}");
+        wire("config")->scripts->add($this->config->urls->BatchChildEditor . "BatchChildEditor.js?v={$version}");
     }
 
     public function ready() {
 
-        if(!$this->user->hasPermission("batch-child-editor")) return;
+        //this check ensures it the hook is only added for the main page list, not the list in the children tab
+        if($this->input->get->id == 1 && $this->input->get->render=='JSON') {
+            $this->addHookAfter('Page::listable', $this, 'pageListCountPages');
+        }
+
 
         // we're interested in page editor only
         if(wire('page')->process != 'ProcessPageEdit') return;
@@ -157,6 +164,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         // don't even consider system templates
         if($this->editedPage->template->flags & Template::flagSystem) return;
+
+        //if checked, remove the main Children tab
+        if($currentData['removeChildrenTab']) $this->addHookAfter('ProcessPageEdit::buildForm', $this, "removeChildrenTab");
 
         // if any templates or pages have been selected, then only hook if the template of the edited page has been chosen or the page has been chosen
         //if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
@@ -186,6 +196,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     }
 
+
+    public function pageListCountPages(HookEvent $event){
+
+        foreach($this->data['pageSettings'] as $pid => $pageSettings) {
+            if($pageSettings['hideChildren']) $this->pages->get($pid)->set('numChildren', 0);
+        }
+
+    }
 
 
     public function buildPageConfigForm(HookEvent $event){
@@ -788,6 +806,37 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     </script>
                     ";
             };
+
+            /*
+            //if($this->wire('user')->hasPermission('page-lister')) {
+                if($this->wire('modules')->isInstalled('ProcessPageLister')) {
+                    $this->lister = $this->wire('modules')->get('ProcessPageListerPro');
+                }
+            //}
+
+
+
+            if($this->lister) {
+                $lister = $this->lister;
+                //if(count($_GET)) $lister->sessionClear();
+                $lister->initSelector = '';
+                $lister->parent = $pp->id;
+                $customDefaultFilter = $currentData['defaultFilter'] ? ", {$currentData['defaultFilter']}" : "";
+                $lister->defaultSelector = "parent={$pp->id}, include=all{$customDefaultFilter}";
+                $lister->defaultSort = $currentData['listerDefaultSort'];
+                $lister->limit = 25;
+                $lister->useColumnLabels = 1;
+                //$lister->preview = false;
+                $lister->columns = $currentData['listerColumns'];
+                $lister->toggles = array('noButtons');
+                $lister->allowBookmarks = false;
+                $lister->allowIncludeAll = true;
+                $lister->viewMode = 4;
+                $lister->editMode = 2;
+                $lister->editOption = 2;
+                $f->value = $lister->execute();
+            }*/
+
             $f->icon = 'search';
             $listerFieldset->add($f);
         }
@@ -935,7 +984,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         return $childEditSet;
     }
-
 
     public function saveChildren(HookEvent $event){
 
@@ -1633,6 +1681,19 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     }
 
 
+    public function removeChildrenTab ($event) {
+
+        $form = $event->return;
+
+        $fieldset = $form->find("id=ProcessPageEditChildren")->first();
+
+        if(!is_object($fieldset)) return;
+
+        $form->remove($fieldset);
+        $event->object->removeTab("ProcessPageEditChildren");
+    }
+
+
     /**
      * Called only when your module is installed
      *
@@ -2031,7 +2092,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f = wire('modules')->get("InputfieldRadios");
     $f->attr('name', 'position');
     $f->label = __('Position');
-    $f->columnWidth = 20;
+    $f->columnWidth = 14;
     $f->description = __('Where to position the Batch Child Editor tool. Replace will remove the existing page tree. New Tab will put this editor in a new tab. Inline Fieldset will add the editor to the Content tab.');
     $f->addOption("top","Top");
     $f->addOption("bottom","Bottom");
@@ -2046,7 +2107,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "position=inlineFieldset";
     $f->requireIf = "position=inlineFieldset";
     $f->label = __('Insert After');
-    $f->columnWidth = 20;
+    $f->columnWidth = 14;
     $f->description = __('Choose the field you want to insert the edit fieldset after.');
     $f->notes = __('If none selected, it will be appended to the end of the Content tab.');
     foreach(wire('fields') as $field) {
@@ -2055,11 +2116,33 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['insertAfterField'] : $data['insertAfterField'];
     $fieldset->add($f);
 
+    //only for page context settings, NOT module config settings
+    if(wire('input')->get->id) {
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'hideChildren');
+        $f->label = __('Hide Children');
+        $f->columnWidth = 14;
+        $f->description = __('If checked, all children will be removed from the page tree.');
+        $f->notes = __('Use this option if you want to force editing of child pages through BCE.');
+        $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['hideChildren'] : $data['hideChildren']) ? 'checked' : '' );
+        $fieldset->add($f);
+    }
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'removeChildrenTab');
+    $f->showIf = "position=inlineFieldset|newTab";
+    $f->label = __('Remove Children Tab');
+    $f->columnWidth = 14;
+    $f->description = __('If checked, the Children tab will be removed.');
+    $f->notes = __('This option to help to simplify the interface when the position is Inline Fieldset or New Tab');
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['removeChildrenTab'] : $data['removeChildrenTab']) ? 'checked' : '' );
+    $fieldset->add($f);
+
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'loadOpen');
     $f->label = __('Load open, not collapsed');
     $f->showIf = "position!=newTab";
-    $f->columnWidth = 20;
+    $f->columnWidth = 14;
     $f->description = __('If checked, batch child editor will initially be open, not collapsed.');
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
     $fieldset->add($f);
@@ -2069,7 +2152,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->attr('name', 'openMethod');
         $f->label = __('Open Method');
         $f->showIf = "loadOpen=0";
-        $f->columnWidth = 20;
+        $f->columnWidth = 14;
         $f->description = __('If initially collapsed, how should it be opened?');
         $f->notes = __('AJAX can be useful to improve performance of the page editor for page trees with a lot of children. Especially useful if you are using the "New Tab" position option.');
         $f->addOption("normal","Normal");
@@ -2082,7 +2165,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'tabName');
     $f->label = __('Tab / fieldset name');
     $f->required = 1;
-    $f->columnWidth = 20;
+    $f->columnWidth = 16;
     $f->description = __('Name for the tab / fieldset.');
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['tabName'] : $data['tabName'];
     $fieldset->add($f);
