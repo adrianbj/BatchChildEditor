@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 111,
+            'version' => 112,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -132,7 +132,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
 
     public function init() {
-        if(!$this->user->hasPermission("batch-child-editor")) return;
         $this->addHookAfter("ProcessPageEdit::buildFormChildren", $this, "addScript");
     }
 
@@ -143,6 +142,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     }
 
     public function ready() {
+
+        if(!$this->user->hasPermission('batch-child-editor')) return;
 
         //this check ensures it the hook is only added for the main page list, not the list in the children tab
         if($this->input->get->id == 1 && $this->input->get->render=='JSON') {
@@ -435,6 +436,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if($editMode == 'update' && $pp->children->count == 0) continue;
                 //check users add rights for add and replace mode
                 if(($editMode == 'add' || $editMode == 'replace') && !$pp->addable()) continue;
+                if($editMode == 'lister' && !$this->user->hasPermission('page-lister')) continue;
                 $f->addOption($editMode, ucfirst($editMode));
             }
             if($this->input->get->s && $this->session->edit_mode) {
@@ -769,7 +771,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
 
         // Lister
-        if(in_array('lister', $currentData['editModes'])) {
+        if(in_array('lister', $currentData['editModes']) && $this->user->hasPermission('page-lister')) {
 
             $listerFieldset = $this->modules->get("InputfieldFieldset");
             $listerFieldset->label = $currentData['listerModeTitle'];
