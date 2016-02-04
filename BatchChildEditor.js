@@ -10,44 +10,24 @@ function getUrlVars(url) {
 function childChildTableDialog() {
 
     var $a = $(this);
-    var url = $a.attr('data-url');
-    var title = $a.attr('data-title');
+    var url = $a.attr('data-url')
     var closeOnSave = true;
-    var pid = getUrlVars(url)["id"];
-    var $iframe = $('<iframe id="childEditFrame_'+pid+'" frameborder="0" src="' + url + '"></iframe>');
-    var windowWidth = $(window).width()-100;
-    var windowHeight = $(window).height()-220;
-    var $container = $('#'+pid);
-    var dialogPageID = 0;
+    var $iframe = pwModalWindow(url, {}, 'large');
 
-    var $dialog = $iframe.dialog({
-        modal: true,
-        height: windowHeight,
-        width: windowWidth,
-        position: [50,49],
-        close: function(event, ui) {
-            if(dialogPageID > 0) {
-                $container.val($("#childEditFrame_"+pid).contents().find('#Inputfield_title').val());
-                $container.effect('highlight', 1000);
-            }
-        }
-    }).width(windowWidth).height(windowHeight);
+    var dialogPageID = 0;
 
     $iframe.load(function() {
 
         var buttons = [];
+        var pid = getUrlVars(url)["id"];
         var $icontents = $iframe.contents();
+        var initTemplate = $icontents.find('#template option:selected').text();
         var n = 0;
-        var title = $icontents.find('title').text();
 
         dialogPageID = $icontents.find('#Inputfield_id').val(); // page ID that will get added if not already present
 
-        // set the dialog window title
-        $dialog.dialog('option', 'title', title);
-
         // hide things we don't need in a modal context
-        //$icontents.find('#wrap_Inputfield_template, #wrap_template, #wrap_parent_id').hide();
-        //$icontents.find('#breadcrumbs ul.nav, #_ProcessPageEditDelete, #_ProcessPageEditChildren').hide();
+        //$icontents.find('#breadcrumbs ul.nav, #Inputfield_submit_save_field_copy').hide();
 
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
 
@@ -66,8 +46,14 @@ function childChildTableDialog() {
                     'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                     'click': function() {
                         $button.click();
-                        if(closeOnSave) setTimeout(function() {
-                            $dialog.dialog('close');
+                        //if template has changed, then don't close on save as may need to accept confirmation of change
+                        if(closeOnSave && initTemplate == $icontents.find('#template option:selected').text()) setTimeout(function() {
+                            $iframe.dialog('close');
+                            $('#title_'+pid).val($icontents.find('#Inputfield_title').val());
+                            $('#name_'+pid).text($icontents.find('#Inputfield__pw_page_name').val());
+                            $('#template_'+pid).val($icontents.find('#template option:selected').val());
+
+                            //$container.effect('highlight', 1000);
                         }, 500);
                         closeOnSave = true; // only let closeOnSave happen once
                     }
@@ -77,8 +63,7 @@ function childChildTableDialog() {
             $button.hide();
         });
 
-        if(buttons.length > 0) $dialog.dialog('option', 'buttons', buttons);
-        $dialog.width(windowWidth).height(windowHeight);
+        $iframe.setButtons(buttons);
 
     });
 
