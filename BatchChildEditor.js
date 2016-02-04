@@ -51,7 +51,10 @@ function childChildTableDialog() {
                             $iframe.dialog('close');
                             $('#title_'+pid).val($icontents.find('#Inputfield_title').val());
                             $('#name_'+pid).text($icontents.find('#Inputfield__pw_page_name').val());
-                            $('#template_'+pid).val($icontents.find('#template option:selected').val());
+                            //version for when template is changeable and in a select dropdown
+                            $('select[id=template_'+pid).val($icontents.find('#template option:selected').val());
+                            //version for when edit mode doesn't allow changing template, so it's just in a span
+                            $('span#template_'+pid).text($icontents.find('#template option:selected').text());
 
                             //$container.effect('highlight', 1000);
                         }, 500);
