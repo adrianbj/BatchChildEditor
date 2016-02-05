@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 116,
+            'version' => 117,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -98,6 +98,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "tabName" => "Batch Child Editor",
                 "disableContentProtection" => "",
                 "allowTemplateChanges" => "",
+                "allowAdminPages" => "",
                 "editModeTitle" => "Edit Child Pages",
                 "editModeDescription" => "You can edit the page titles, sort, delete, add new, or edit pages in a modal popup.",
                 "editModeNotes" => "",
@@ -164,7 +165,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $this->editedPage = wire('pages')->get($id);
 
         // don't even consider system templates
-        if($this->editedPage->template->flags & Template::flagSystem) return;
+        if(!$this->data['allowAdminPages'] && ($this->editedPage->template->flags & Template::flagSystem)) return;
 
         //if checked, remove the main Children tab
         if($currentData['removeChildrenTab']) $this->addHookAfter('ProcessPageEdit::buildForm', $this, "removeChildrenTab");
@@ -1807,11 +1808,9 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f = wire('modules')->get("InputfieldPageListSelect");
         $f->attr('name', 'parentPage');
         $f->label = __('Parent Page');
-        //$f->showIf = "editModes=replace|edit";
         $f->columnWidth = 100;
         $f->description = __('If selected, the editable children will be from this parent instead.');
-        //$f->notes = __("");
-        $f->value = $pid && isset($data['pageSettings'][$pid]) && isset($data['pageSettings'][$pid]['parentPage']) ? $data['pageSettings'][$pid]['parentPage'] : $data['parentPage'];
+        $f->value = $pid && isset($data['pageSettings'][$pid]) && isset($data['pageSettings'][$pid]['parentPage']) ? $data['pageSettings'][$pid]['parentPage'] : '';
         $fieldset->add($f);
     }
 
@@ -1819,7 +1818,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'disableContentProtection');
     $f->label = __('Disable content protection');
     $f->showIf = "editModes=replace|edit";
-    $f->columnWidth = 33;
+    $f->columnWidth = 25;
     $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. In edit mode it allows deletion of pages that have their own children.');
     $f->notes = __("This can be extremely destructive, use with extreme caution!");
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
@@ -1829,16 +1828,29 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('name', 'allowTemplateChanges');
     $f->label = __('Allow template changes');
     $f->showIf = "editModes=edit";
-    $f->columnWidth = 34;
+    $f->columnWidth = 25;
     $f->description = __('If checked, edit mode will allow template changes (if user has the "page-template" permission). There are no warnings about data loss on template change, so be careful with this.');
     $f->notes = __("This can be extremely destructive, use with extreme caution!");
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowTemplateChanges'] : $data['allowTemplateChanges']) ? 'checked' : '' );
     $fieldset->add($f);
 
+    //only for module config settings, NOT page context settings
+    if(!wire('input')->get->id) {
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'allowAdminPages');
+        $f->label = __('Allow editing admin pages');
+        $f->showIf = "editModes=edit";
+        $f->columnWidth = 25;
+        $f->description = __('If checked, this module will work on Admin pages.');
+        $f->notes = __("This can be extremely destructive, use with extreme caution - it has the potential to break the entire PW install!");
+        $f->attr('checked', $data['allowAdminPages'] ? 'checked' : '' );
+        $fieldset->add($f);
+    }
+
     $f = wire('modules')->get("InputfieldRadios");
     $f->attr('name', 'trashOrDelete');
     $f->label = __('Trash or Delete');
-    $f->columnWidth = 33;
+    $f->columnWidth = 25;
     $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
     $f->addOption("trash","Trash");
     $f->addOption("delete","Delete");
