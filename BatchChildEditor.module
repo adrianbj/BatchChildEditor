@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 117,
+            'version' => 118,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -742,7 +742,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
                 $row = array(
                     $pp->sortfield == 'sort' && $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
-                    '<input id="title_'.$cp->id.'" type="text" name="individualChildTitles['.$cp->id.']" value="'.$cp->title.'" style="width:100%" '. (!$cp->editable() ? " readonly" : "") . ' />',
+                    '<input id="'.$cp->id.'" type="text" name="individualChildTitles['.$cp->id.']" value="'.$cp->title.'" style="width:100%" '. (!$cp->editable() ? " readonly" : "") . ' />',
                     '<span id="name_'.$cp->id.'" style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$cp->name.'</span>',
                     $currentData['allowTemplateChanges'] && $this->user->hasPermission("page-template", $cp) ? '<select id="template_'.$cp->id.'" name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : '<span id="template_'.$cp->id.'">'.$cp->template->name.'</span>',
                     '<input id="hiddenStatus_'.$cp->id.'" class="hiddenStatus" name="hiddenStatus['.$cp->id.']" type="checkbox" '.($cp->is(Page::statusHidden) ? 'checked' : '').'/>',

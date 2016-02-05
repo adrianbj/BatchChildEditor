@@ -53,7 +53,7 @@ function childChildTableDialog() {
                         //if template has changed, then don't close on save as may need to accept confirmation of change
                         if(closeOnSave && initTemplate == $icontents.find('#template option:selected').text()) setTimeout(function() {
                             $iframe.dialog('close');
-                            $('#title_'+pid).val($icontents.find('#Inputfield_title').val());
+                            $('#'+pid).val($icontents.find('#Inputfield_title').val());
                             $('#name_'+pid).text($icontents.find('#Inputfield__pw_page_name').val());
                             //version for when template is changeable and in a select dropdown
                             $('select[id=template_'+pid).val($icontents.find('#template option:selected').val());
