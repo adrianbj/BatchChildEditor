@@ -32,7 +32,8 @@ function childChildTableDialog() {
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
 
         // copy buttons in iframe to dialog
-        $icontents.find("#content form button.ui-button[type=submit]").each(function() {
+        // "type=button" is only for Move to Trash button
+        $icontents.find("#content form button.ui-button[type=submit], button.ui-button[type=button]").each(function() {
             var $button = $(this);
             var text = $button.text();
             var skip = false;
@@ -40,6 +41,9 @@ function childChildTableDialog() {
             for(i = 0; i < buttons.length; i++) {
                 if(buttons[i].text == text || text.length < 1) skip = true;
             }
+            // ignore Move to Trash button because we need to add click event to it separately
+            if(text == 'Move to Trash') skip = true;
+
             if(!skip) {
                 buttons[n] = {
                     'text': text,
@@ -55,15 +59,32 @@ function childChildTableDialog() {
                             $('select[id=template_'+pid).val($icontents.find('#template option:selected').val());
                             //version for when edit mode doesn't allow changing template, so it's just in a span
                             $('span#template_'+pid).text($icontents.find('#template option:selected').text());
-
-                            //$container.effect('highlight', 1000);
+                            $('input[id=hiddenStatus_'+pid+']').prop('checked', $icontents.find('#Inputfield_status_1024').is(':checked'));
+                            $('input[id=unpublishedStatus_'+pid+']').prop('checked', $icontents.find('#Inputfield_status_2048').is(':checked'));
+                            //if the user clicks the Publish button rather than unchecking the "Unpublished" checkbox
+                            if(text == 'Publish') $('input[id=unpublishedStatus_'+pid+']').prop('checked', false);
                         }, 500);
                         closeOnSave = true; // only let closeOnSave happen once
                     }
                 };
                 n++;
             };
-            $button.hide();
+
+            // don't hide "Move to Trash" button
+            if(text == 'Move to Trash') {
+                $button.on("click", function(){
+                    //delete page from table row if page deleted in modal
+                    if($icontents.find('input[id=delete_page][value='+pid+']').is(':checked')) {
+                        $('tr.pid_'+pid).remove();
+                    }
+                    $iframe.dialog('close');
+                });
+            }
+            else {
+                // hide original versions of buttons
+                $button.hide();
+            }
+
         });
 
         $iframe.setButtons(buttons);
@@ -300,7 +321,7 @@ $(document).ready(function() {
 
         $tbody.append($row);
         $table.show();
-        $row.find(":input").focus();
+        $row.find(":input[id=]").focus();
         return false;
     });
 
