@@ -32,8 +32,7 @@ function childChildTableDialog() {
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
 
         // copy buttons in iframe to dialog
-        // "type=button" is only for Move to Trash button
-        $icontents.find("#content form button.ui-button[type=submit], button.ui-button[type=button]").each(function() {
+        $icontents.find("#content form button.ui-button[type=submit], button.ui-button[name=submit_delete]").each(function() {
             var $button = $(this);
             var text = $button.text();
             var skip = false;
