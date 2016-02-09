@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 120,
+            'version' => 121,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1083,7 +1083,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         else{
             //delete any pages marked for deletion
             if($this->input->post->idsToDelete!=''){
-                $idsToDelete = explode(',', $this->input->post->idsToDelete);
+                $idsToDelete = explode(',', rtrim($this->input->post->idsToDelete, ','));
                 foreach($idsToDelete as $id){
                     $ptod = $this->pages->get($id);
 
@@ -1092,7 +1092,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $this->error($this->_("You cannot delete this child page, because it has a child page of its own. You can prevent this check by disabling Content Protection in the module config settings."));
                             return;
                         }
-                        if(is_array($ptod->fields) && !empty($ptod->fields)) {
+
+                        if(is_object($ptod->fields) && !empty($ptod->fields)) {
                             foreach($ptod->fields as $ptodfield){
                                 if($ptodfield->name != 'title' && $ptod->$ptodfield !=''){
                                     $this->error($this->_("You cannot delete this child page, because it has a field which is not empty. You can prevent this check by disabling Content Protection in the module config settings."));
