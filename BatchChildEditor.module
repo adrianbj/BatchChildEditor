@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 122,
+            'version' => 123,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -434,7 +434,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // create the fieldset
         $childEditSet = $this->modules->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
-        if($currentData['position'] != 'newTab' && !$this->input->get->s) $childEditSet->collapsed = $currentData['loadOpen'] ? '' : (defined('Inputfield::collapsedYesAjax') && $currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
+        if($currentData['position'] != 'newTab' && !$this->input->get->s) $childEditSet->collapsed = $currentData['loadOpen'] ? '' : ((defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) && $currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
         $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $currentData['tabName'];
 
         if(count($currentData['editModes'])>1){
@@ -1763,7 +1763,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->required = true;
     $f->columnWidth = 25;
     $f->description = __('Which modes you want available. If more than one checked, then the user can decide.');
-    if(defined('Inputfield::collapsedYesAjax')) $f->addOption("lister","Lister");
+    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) $f->addOption("lister","Lister");
     $f->addOption("edit","Edit");
     $f->addOption("add","Add");
     $f->addOption("update","Update");
@@ -1780,7 +1780,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes.count>1";
     $f->description = __('If more than one mode available to user, which one should be open by default.');
     $f->addOption("","None");
-    if(defined('Inputfield::collapsedYesAjax')) $f->addOption("lister","Lister");
+    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) $f->addOption("lister","Lister");
     $f->addOption("edit","Edit");
     $f->addOption("add","Add");
     $f->addOption("update","Update");
@@ -2173,7 +2173,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['loadOpen'] : $data['loadOpen']) ? 'checked' : '' );
     $fieldset->add($f);
 
-    if(defined('Inputfield::collapsedYesAjax')) {
+    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) {
         $f = wire('modules')->get("InputfieldRadios");
         $f->attr('name', 'openMethod');
         $f->label = __('Open Method');
