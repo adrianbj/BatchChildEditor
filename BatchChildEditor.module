@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 123,
+            'version' => 124,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1400,7 +1400,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledTemplates->attr('name+id', 'enabledTemplates');
         $fieldEnabledTemplates->label = __('Enabled templates', __FILE__);
         $fieldEnabledTemplates->columnWidth = 33;
-        $fieldEnabledTemplates->description = __("The batch editing option will only be available for the selected templates.\nNB Leave blank to allow all templates.", __FILE__);
+        $fieldEnabledTemplates->description = __("The batch editing option will only be available for the selected templates.\nLeave blank to allow all templates.", __FILE__);
         $fieldEnabledTemplates->setAsmSelectOption('sortable', false);
 
         // populate with all available templates
@@ -1416,7 +1416,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $fieldEnabledPages->attr('name+id', 'enabledPages');
         $fieldEnabledPages->label = __('Enabled pages', __FILE__);
         $fieldEnabledPages->columnWidth = 34;
-        $fieldEnabledPages->description = __("The batch editing option will only be available for the selected pages.\nNB Leave blank to allow all pages.", __FILE__);
+        $fieldEnabledPages->description = __("The batch editing option will only be available for the selected pages.\nLeave blank to allow all pages.", __FILE__);
         if(isset($data['enabledPages'])) $fieldEnabledPages->value = $data['enabledPages'];
         $fieldset->add($fieldEnabledPages);
 
@@ -1978,7 +1978,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->name = 'fieldPairings';
         $f->label = __('CSV field pairings');
         $f->description = __("Enter CSV column number and Processwire field name pairs to match up when importing. If empty, all CSV columns will be imported in order and therefore must match the number of fields in the template for this page.");
-        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n5:parentfield.subfield\n\nNB Unless the only modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
+        $f->notes = __("Column numbers start at 1 so in this example we are excluding the 3rd column in the CSV file:\n1:title\n2:body\n4:notes\n5:parentfield.subfield\n\nUnless the only modes are \"Edit\" and \"Update\", you must include at least the \"title\" field, but all other fields are optional.");
         $f->showIf = "editModes=add|update|replace";
         $f->columnWidth = 50;
         $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
