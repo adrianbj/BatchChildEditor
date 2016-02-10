@@ -20,7 +20,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'title' => 'Batch child editor',
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 121,
+            'version' => 122,
             'permanent' => false,
             'autoload' => true,
             'requires' => 'ProcessWire>=2.5.24',
@@ -1043,14 +1043,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
 
             if(!$currentData['disableContentProtection']){
+                $disableNote = $this->user->isSuperuser() ? __(" You can prevent this check by disabling Content Protection in the module config settings.") : '';
                 foreach($pp->children("include=all") as $cp){
                     if($cp->numChildren>0){
-                        $this->error($this->_("You cannot batch replace these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first."));
+                        $this->error($this->_("You cannot batch replace these child pages, because at least one page has a child page of its own. Try the edit option, or delete existing child pages first." . $disableNote));
                         return;
                     }
                     foreach($cp->fields as $cpfield){
                         if($cpfield->name != 'title' && $cp->$cpfield !=''){
-                            $this->error($this->_("You cannot batch replace these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first."));
+                            $this->error($this->_("You cannot batch replace these child pages, because at least one page has a field which is not empty. Try the edit option, or delete existing child pages first." . $disableNote));
                             return;
                         }
                     }
@@ -1088,15 +1089,16 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $ptod = $this->pages->get($id);
 
                     if(!$currentData['disableContentProtection']){
+                        $disableNote = $this->user->isSuperuser() ? __(" You can prevent this check by disabling Content Protection in the module config settings.") : '';
                         if($ptod->numChildren>0){
-                            $this->error($this->_("You cannot delete this child page, because it has a child page of its own. You can prevent this check by disabling Content Protection in the module config settings."));
+                            $this->error($this->_("You cannot delete this child page, because it has a child page of its own." . $disableNote));
                             return;
                         }
 
                         if(is_object($ptod->fields) && !empty($ptod->fields)) {
                             foreach($ptod->fields as $ptodfield){
                                 if($ptodfield->name != 'title' && $ptod->$ptodfield !=''){
-                                    $this->error($this->_("You cannot delete this child page, because it has a field which is not empty. You can prevent this check by disabling Content Protection in the module config settings."));
+                                    $this->error($this->_("You cannot delete this child page, because it has a field which is not empty." . $disableNote));
                                     return;
                                 }
                             }
@@ -1830,7 +1832,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('Disable content protection');
     $f->showIf = "editModes=replace|edit";
     $f->columnWidth = 25;
-    $f->description = __('If checked, replace mode will destructively replace children even if they have additional field content and grandchildren. In edit mode it allows deletion of pages that have their own children.');
+    $f->description = __('If checked, replace and edit modes will destructively delete children if they have field content and/or their own children. This is not different to normal ProcessWire behavior, but with this module it is very easy to delete important content, hence this check.');
     $f->notes = __("This can be extremely destructive, use with extreme caution!");
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['disableContentProtection'] : $data['disableContentProtection']) ? 'checked' : '' );
     $fieldset->add($f);
