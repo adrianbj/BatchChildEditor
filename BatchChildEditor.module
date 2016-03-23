@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 126,
+            'version' => 127,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -203,7 +203,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public function pageListCountPages(HookEvent $event){
 
         foreach($this->data['pageSettings'] as $pid => $pageSettings) {
-            if($pageSettings['hideChildren']) $this->pages->get($pid)->set('numChildren', 0);
+            if(isset($pageSettings['hideChildren']) && $pageSettings['hideChildren']) $this->pages->get($pid)->set('numChildren', 0);
         }
 
     }
