@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 128,
+            'version' => 129,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -83,13 +83,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "csvOptionsCollapsed" => array(),
                 "csvImportFieldSeparator" => ",",
                 "csvImportFieldEnclosure" => '"',
-                "multipleValuesSeparator" => "|",
                 "ignoreFirstRow" => "",
                 "exportFields" => "",
                 "csvExportFieldSeparator" => ",",
                 "csvExportFieldEnclosure" => '"',
                 "csvExportExtension" => 'csv',
                 "columnsFirstRow" => "",
+                "multipleValuesSeparator" => "|",
+                "formatExport" => "",
                 "allowOverrideCsvImportSettings" => "",
                 "allowOverrideCsvExportSettings" => "",
                 "fieldPairings" => "",
@@ -929,21 +930,21 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __('Columns separated with');
                 $f->notes = __('For tab separated, enter: tab');
                 $f->value = $currentData['csvExportFieldSeparator'];
-                $f->columnWidth = 20;
+                $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
                 $f = $this->modules->get("InputfieldText");
                 $f->name = 'export_column_enclosure';
                 $f->label = __('Column enclosure');
                 $f->value = $currentData['csvExportFieldEnclosure'];
-                $f->columnWidth = 20;
+                $f->columnWidth = 34;
                 $exportFieldset->add($f);
 
                 $f = $this->modules->get("InputfieldText");
                 $f->name = 'export_extension';
                 $f->label = __('File extension');
                 $f->value = $currentData['csvExportExtension'];
-                $f->columnWidth = 20;
+                $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
                 $f = wire('modules')->get("InputfieldText");
@@ -952,7 +953,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->description = __('Separator for multiple values like Page fields, files/images, multiplier, etc.');
                 $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
                 $f->value = $currentData['multipleValuesSeparator'];
-                $f->columnWidth = 20;
+                $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
                 $f = $this->modules->get("InputfieldCheckbox");
@@ -960,10 +961,20 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __('Column labels');
                 $f->label2 = 'Put column names in the first row';
                 $f->attr('checked', $currentData['columnsFirstRow'] ? 'checked' : '' );
-                $f->columnWidth = 20;
+                $f->columnWidth = 34;
                 $exportFieldset->add($f);
+
+                $f = wire('modules')->get("InputfieldCheckbox");
+                $f->attr('name', 'format_export');
+                $f->label = __('Format Export');
+                $f->label2 = __('Turns on output formatting for exported values.');
+                $f->notes = __('If you will be importing this back into ProcessWire, you should leave unchecked.');
+                $f->attr('checked', $currentData['formatExport'] ? 'checked' : '' );
+                $f->columnWidth = 33;
+                $exportFieldset->add($f);
+
             }
-            //if there is no user override then populate hidden so .js file can get these value and pass them to the Process helper module
+            //if there is no user override then populate hidden so that js file can get these value and pass them to the Process helper module
             else {
                 $f = $this->modules->get("InputfieldMarkup");
                 $f->attr('name', 'csv_settings');
@@ -974,6 +985,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 <input id='Inputfield_export_column_enclosure' type='hidden' value='{$currentData['csvExportFieldEnclosure']}' />
                 <input id='Inputfield_export_extension' type='hidden' value='{$currentData['csvExportExtension']}' />
                 <input id='Inputfield_multiple_values_separator' type='hidden' value='{$currentData['multipleValuesSeparator']}' />
+                <input id='Inputfield_format_export' type='hidden' value='{$currentData['formatExport']}' />
                 <input id='Inputfield_export_names_first_row' type='hidden' value='{$currentData['columnsFirstRow']}' />
                 ";
                 $f->addClass('InputfieldHidden');
@@ -2063,7 +2075,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=export";
     $f->notes = __('For tab separated, enter: tab');
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvExportFieldSeparator'] : $data['csvExportFieldSeparator'];
-    $f->columnWidth = 20;
+    $f->columnWidth = 33;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -2071,7 +2083,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('CSV field enclosure');
     $f->showIf = "editModes=export";
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvExportFieldEnclosure'] : $data['csvExportFieldEnclosure'];
-    $f->columnWidth = 20;
+    $f->columnWidth = 34;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -2079,7 +2091,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('File extension');
     $f->showIf = "editModes=export";
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvExportExtension'] : $data['csvExportExtension'];
-    $f->columnWidth = 20;
+    $f->columnWidth = 33;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");
@@ -2088,7 +2100,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label2 = __('Put column names in the first row');
     $f->showIf = "editModes=export";
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['columnsFirstRow'] : $data['columnsFirstRow']) ? 'checked' : '' );
-    $f->columnWidth = 20;
+    $f->columnWidth = 33;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldText");
@@ -2098,7 +2110,17 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
     $f->showIf = "editModes=export";
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['multipleValuesSeparator'] : $data['multipleValuesSeparator'];
-    $f->columnWidth = 20;
+    $f->columnWidth = 34;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'formatExport');
+    $f->label = __('Format Export');
+    $f->label2 = __('Turns on output formatting for exported values.');
+    $f->notes = __('If you will be importing this back into ProcessWire, you should leave unchecked.');
+    $f->showIf = "editModes=export";
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['formatExport'] : $data['formatExport']) ? 'checked' : '' );
+    $f->columnWidth = 33;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");

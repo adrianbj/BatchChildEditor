@@ -21,8 +21,8 @@ There is also an exportCsv() API method that can be used like this:
 // export as CSV if csv_export=1 is in url
 if($input->get->csv_export==1){
    $modules->get('ProcessChildrenCsvExport'); // load module
-   // delimiter, enclosure, file extension, names in first row, multiple field separator, array of field names
-   $page->exportCsv(',', '"', 'csv', true, "\r", array('title','body','images','textareas'));
+   // delimiter, enclosure, file extension, names in first row, multiple field separator, format values, array of field names
+   $page->exportCsv(',', '"', 'csv', true, "\r", true, array('title','body','images','textareas'));
    //$page->exportCsv() - this version uses the defaults from the module or page specific settings
 }
 // display content of template with link to same page with appended csv_export=1

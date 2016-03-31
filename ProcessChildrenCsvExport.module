@@ -78,14 +78,17 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
         $configSettings = wire('modules')->getModuleConfigData("BatchChildEditor");
 
+        $pp = !is_null($event) ? $event->object : wire('pages')->get((int) wire('input')->get->pid);
         $delimiter = !is_null($event) ? $event->arguments(0) : wire('input')->get->cs;
         $enclosure = !is_null($event) ? $event->arguments(1) : wire('input')->get->ce;
         $extension = !is_null($event) ? $event->arguments(2) : wire('input')->get->ext;
         $namesFirstRow = !is_null($event) ? $event->arguments(3) : wire('input')->get->nfr;
         $namesFirstRow = $namesFirstRow == 'checked' || $namesFirstRow == '1' ? true : false;
         $multipleValuesSeparator = !is_null($event) ? $event->arguments(4) : wire('input')->get->mvs;
-        $fieldNames = !is_null($event) ? $event->arguments(5) : explode(',', wire('input')->get->fns);
-        $pp = !is_null($event) ? $event->object : wire('pages')->get((int) wire('input')->get->pid);
+        $formatExport = !is_null($event) ? $event->arguments(5) : wire('input')->get->fe;
+        $formatExport = $formatExport == 'checked' || $formatExport == 1 ? true : false;
+        $fieldNames = !is_null($event) ? $event->arguments(6) : explode(',', wire('input')->get->fns);
+
 
         //if settings not supplied, use defaults from page or module config settings
         $currentData = in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
@@ -97,13 +100,18 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $extension = $extension ? $extension : $currentData['csvExportExtension'];
         $namesFirstRow = $namesFirstRow ? $namesFirstRow : $currentData['columnsFirstRow'];
         $multipleValuesSeparator = $multipleValuesSeparator ? $multipleValuesSeparator : $currentData['multipleValuesSeparator'];
+        $formatExport = isset($formatExport) ? $formatExport : $currentData['formatExport'];
         $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
+        if($fieldNames[0] == 'undefined') {
+            $fieldNames = array();
+            foreach ($pp->fields as $f) $fieldNames[] = $f->name;
+        }
 
         $csv = array();
         $i=0;
         foreach($pp->children as $p){
 
-            $p->of(true); //needed to have fields formatted in the CSV
+            $p->of($formatExport); //needed to have fields formatted in the CSV
 
             //Names in First Row
             if($i==0 && $namesFirstRow == true){
@@ -121,7 +129,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
                         }
                     }
                     //All other fieldtypes
-                    else {
+                    elseif(isset($fieldName) && $fieldName !== 'undefined') {
                         if(array_key_exists($fieldName, $systemFields)) {
                             $fieldLabel = $systemFields[$fieldName];
                         }
@@ -159,10 +167,6 @@ class ProcessChildrenCsvExport extends Process implements Module {
                         $csv[$i][] = $p->$fieldName->$subFieldName;
                     }
                 }
-                //Datetime fields
-                elseif((wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeDatetime') || $fieldName == 'created' || $fieldName == 'modified') {
-                    $formattedValue = date("Y-m-d H:i:s", strtotime($p->$fieldName));
-                }
                 //Page fields
                 elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypePage) {
                     if($p->$fieldName->implode($multipleValuesSeparator, 'title')) { // title available
@@ -180,7 +184,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
                         foreach($p->$fieldName as $value) $values[] = $value;
                         $formattedValue = implode($multipleValuesSeparator, $values);
                     }
-                    $p->of(true);
+                    $p->of($formatExport);
                 }
                 //All other fields
                 else {
