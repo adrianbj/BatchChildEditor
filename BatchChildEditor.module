@@ -90,7 +90,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "csvExportExtension" => 'csv',
                 "columnsFirstRow" => "",
                 "multipleValuesSeparator" => "|",
-                "formatExport" => "",
+                "formatExport" => 1,
                 "allowOverrideCsvImportSettings" => "",
                 "allowOverrideCsvExportSettings" => "",
                 "fieldPairings" => "",
