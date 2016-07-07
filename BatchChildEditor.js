@@ -327,7 +327,7 @@ $(document).ready(function() {
 
     // make rows sortable - trigger this on first ("one") mouseover of a sort handle in case BCE fieldset is being opened via AJAX
     $(document).one('mouseover', '.InputfieldChildTableRowSortHandle', function() {
-        $("table.AdminDataTableSortable").each(function() {
+        $("table.AdminDataTable").each(function() {
             childChildTableSortable($(this));
         });
     });
