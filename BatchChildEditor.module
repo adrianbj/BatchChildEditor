@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 133,
+            'version' => 134,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -1309,7 +1309,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             //creating pages and populating fields
             foreach($row as $childField) {
-                $childField = trim($this->sanitizer->text($childField));
+                $childField = trim($this->sanitizer->purify($childField));
                 //if fieldPairings is defined now populate the rest of the fields
                 if($currentData['fieldPairings'] != '') {
                     //populate new page with rest of the field values
