@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 132,
+            'version' => 133,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -1136,9 +1136,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         $this->error($this->_("Some pages could not be created due to template family settings."));
                         continue;
                     }
-                    $cp = new Page();
-                    $cp->parent = $pp;
-                    $cp->template = $this->input->post->templateId[$id];
+                    $cp = $this->newPage($pp, $this->input->post->templateId[$id]);
                     if(isset($this->input->post->hiddenStatus[$id])) $cp->addStatus(Page::statusHidden);
                     if(isset($this->input->post->unpublishedStatus[$id])) $cp->addStatus(Page::statusUnpublished);
                 }
@@ -1299,9 +1297,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
                 //not update mode, so create new page
                 else {
-                    $np = new Page();
-                    $np->parent = $pp;
-                    $np->template = $childTemplate;
+                    $np = $this->newPage($pp, $childTemplate);
                 }
 
                 if($titleKey) $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
@@ -1351,17 +1347,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                                 // for new pages added at the end when using Update mode
                                 else {
                                     if(!$pp->addable()) continue; //update mode is available to users without add permission, but they shouldn't be able to add new pages at the end
-                                    $np = new Page();
-                                    $np->parent = $pp;
-                                    $np->template = $childTemplate;
+                                    $np = $this->newPage($pp, $childTemplate);
                                 }
                             }
                         }
                         //not update mode, so create new page
                         else {
-                            $np = new Page();
-                            $np->parent = $pp;
-                            $np->template = $childTemplate;
+                            $np = $this->newPage($pp, $childTemplate);
                         }
 
                         $np->title = trim($this->sanitizer->text($childField));
@@ -1707,6 +1699,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         return $allowed;
     }
 
+    protected function newPage($parent, $template) {
+        $np = new Page();
+        $np->parent = $parent;
+        $np->template = $template;
+        if($this->wire('languages')) {
+            foreach($this->wire('languages')->find('name!=default') as $language) $np->set("status$language", 1);
+        }
+        return $np;
+    }
 
     public function removeChildrenTab ($event) {
 
