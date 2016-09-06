@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 134,
+            'version' => 135,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -487,7 +487,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }*/
             foreach($this->templates as $t) {
-                if(!$this->isAllowedTemplateAdd($t, $pp)) continue;
+                if(!$t->id || !$this->isAllowedTemplateAdd($t, $pp)) continue;
                 $f->addOption($this->templates->get($t)->name);
             }
             if($pp->children("include=all")->count()>0 && $pp->children("include=all")->last()->id) $f->attr('value', $pp->children("include=all")->last()->template);
@@ -503,6 +503,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->description = __('Whether to overwrite the name of the page, and not just the title.');
             $f->attr('checked', $currentData['overwriteNames'] ? 'checked' : '' );
             $f->notes = __("This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
+            $childEditSet->add($f);
+        }
+
+        // Make new pages active in other languages?
+        if($this->wire('languages')) {
+            $f = $this->modules->get("InputfieldCheckbox");
+            $f->name = "activateOtherLanguages";
+            $f->showIf = "edit_mode.count>0, edit_mode!=export, edit_mode!=update, edit_mode!=lister";
+            $f->label = __('Activate New Pages in Other Languages');
+            $f->columnWidth = 100;
+            $f->attr('checked', $this->session->activateOtherLanguages === 0 ? '' : 'checked');
             $childEditSet->add($f);
         }
 
@@ -708,7 +719,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $defaultTemplateOptions = "<select name = 'templateId[new_0]'>";
             foreach($possibleTemplates as $templateId) {
                 $t = $this->templates->get($templateId);
-                if(!$this->isAllowedTemplateAdd($templateId, $pp)) continue;
+                if(!$t->id || !$this->isAllowedTemplateAdd($t, $pp)) continue;
                 $defaultTemplateOptions .= '<option value = "'.$t->id.'">' . ($t->label ? $t->label : $t->name) . '</option>';
             }
             $defaultTemplateOptions .= "</select>";
@@ -1022,6 +1033,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //set the current edit mode so it can be opened after saving the page
         $this->session->edit_mode = $this->input->post->edit_mode;
+
+        //set the current activateOtherLanguages status so it is remembered for next operation
+        $this->session->activateOtherLanguages = $this->input->post->activateOtherLanguages ? 1 : 0;
 
         $pp = $event->object->getPage();
 
@@ -1703,7 +1717,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $np = new Page();
         $np->parent = $parent;
         $np->template = $template;
-        if($this->wire('languages')) {
+        if($this->wire('languages') && $this->input->post->activateOtherLanguages) {
             foreach($this->wire('languages')->find('name!=default') as $language) $np->set("status$language", 1);
         }
         return $np;
