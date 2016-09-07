@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 135,
+            'version' => 136,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -1235,12 +1235,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     public function createPages($childPages, $pp, $childTemplate) {
 
-        $childPages = trim(preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $childPages),"\n"); // remove any blank lines
-        $childPages = str_replace("\r\n","\n", $childPages); //fix for Windows line endings
-        $childPages = str_replace("\r","\n", $childPages); //fix for Mac Excel line ending issue - http://nicercode.github.io/blog/2013-04-30-excel-and-line-endings/
-        if($childPages == '') return;
-        $childPagesArray = explode("\n",$childPages);
-
         //populate currentData with pageSettings version if page has specific settings
         $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
         if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
@@ -1252,6 +1246,18 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $currentData['ignoreFirstRow'] = $this->session->userIgnoreFirstRow = $this->input->post->userIgnoreFirstRow;
         }
 
+        if($childPages == '') return;
+
+        require_once __DIR__ . '/parsecsv.lib.php';
+
+        $childPagesArray = new parseCSV();
+        $childPagesArray->encoding('UTF-16', 'UTF-8');
+        $childPagesArray->heading = $currentData['ignoreFirstRow'];
+        $childPagesArray->delimiter = $currentData['csvImportFieldSeparator'] == "tab" ? chr(9) : $currentData['csvImportFieldSeparator'];
+        $childPagesArray->enclosure = $currentData['csvImportFieldEnclosure'];
+        $childPagesArray->parse($childPages);
+
+
         //if defined, get field pairings
         if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
             $convertedFieldPairings = $this->convertFieldPairings($currentData['fieldPairings']);
@@ -1262,12 +1268,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //iterate through rows in childpages data (text/paste, URL, or uploaded CSV)
         $x=0;
-        foreach($childPagesArray as $childPage) {
+        foreach($childPagesArray->data as $row) {
 
             $i=0;
             $x++;
-
-            $row = str_getcsv($childPage, $currentData['csvImportFieldSeparator'] == "tab" ? chr(9) : $currentData['csvImportFieldSeparator'], $currentData['csvImportFieldEnclosure']);
 
             //if fields pairings are not defined, then make sure the field count matches the number of fields in the selected child template
             if(!isset($this->data['pageSettings'][$pp->id]['fieldPairings']) || $this->data['pageSettings'][$pp->id]['fieldPairings'] == '') {
