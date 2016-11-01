@@ -26,7 +26,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => 138,
+            'version' => 139,
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -100,6 +100,8 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $extension = $extension ? $extension : $currentData['csvExportExtension'];
         $namesFirstRow = $namesFirstRow ? $namesFirstRow : $currentData['columnsFirstRow'];
         $multipleValuesSeparator = $multipleValuesSeparator ? $multipleValuesSeparator : $currentData['multipleValuesSeparator'];
+        if($multipleValuesSeparator == '\r') $multipleValuesSeparator = chr(13);
+        if($multipleValuesSeparator == '\n') $multipleValuesSeparator = chr(10);
         $formatExport = isset($formatExport) ? $formatExport : $currentData['formatExport'];
         $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
         if($fieldNames[0] == 'undefined') {
@@ -156,7 +158,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
                     wire('fields')->$fieldName->type == 'FieldsetTabClose'
                 )) continue;
 
-                if((wire('fields')->$fieldName->type instanceof FieldtypeMulti && count($p->$fieldName) === 0) || !$p->$fieldName) {
+                if(!$p->$fieldName) {
                     $formattedValue = '';
                 }
                 //FieldtypeTextareas
@@ -169,11 +171,16 @@ class ProcessChildrenCsvExport extends Process implements Module {
                 }
                 //Page fields
                 elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypePage) {
-                    if($p->$fieldName->implode($multipleValuesSeparator, 'title')) { // title available
-                        $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'title');
+                    if(method_exists($p->$fieldName,'implode')) {
+                        if($p->$fieldName->implode($multipleValuesSeparator, 'title')) { // title available
+                            $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'title');
+                        }
+                        else { // no title so use name - eg a page field selecting from the user template
+                            $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'name');
+                        }
                     }
-                    else { // no title so use name - eg a page field selecting from the user template
-                        $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'name');
+                    else {
+                        $formattedValue = $p->$fieldName->title ? $p->$fieldName->title : $p->$fieldName->name;
                     }
                 }
                 //FieldtypeMultiplier and FieldtypeFile
@@ -185,6 +192,9 @@ class ProcessChildrenCsvExport extends Process implements Module {
                         $formattedValue = implode($multipleValuesSeparator, $values);
                     }
                     $p->of($formatExport);
+                }
+                elseif(wire('fields')->$fieldName->type instanceof FieldtypeMulti && count($p->$fieldName) === 0) {
+                    $formattedValue = '';
                 }
                 //All other fields
                 else {
