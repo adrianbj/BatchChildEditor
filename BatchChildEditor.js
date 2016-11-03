@@ -115,7 +115,7 @@ $(document).ready(function() {
             "&ce="+$("#Inputfield_export_column_enclosure").val()+
             "&ext="+$("#Inputfield_export_extension").val()+
             "&nfr="+($("#Inputfield_export_names_first_row").is(':checkbox') ? $("#Inputfield_export_names_first_row").attr('checked') : $("#Inputfield_export_names_first_row").val())+
-            "&mvs="+$("#Inputfield_multiple_values_separator").val()+
+            "&mvs="+$("#Inputfield_export_multiple_values_separator").val()+
             "&fe="+($("#Inputfield_format_export").is(':checkbox') ? $("#Inputfield_format_export").attr('checked') : $("#Inputfield_format_export").val())
         );
         return false;

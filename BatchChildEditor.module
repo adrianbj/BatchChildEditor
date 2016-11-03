@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 139,
+            'version' => 140,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -89,7 +89,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "csvExportFieldEnclosure" => '"',
                 "csvExportExtension" => 'csv',
                 "columnsFirstRow" => "",
-                "multipleValuesSeparator" => "|",
+                "importMultipleValuesSeparator" => "|",
+                "exportMultipleValuesSeparator" => "|",
                 "formatExport" => 1,
                 "allowOverrideCsvImportSettings" => "",
                 "allowOverrideCsvExportSettings" => "",
@@ -959,11 +960,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $exportFieldset->add($f);
 
                 $f = wire('modules')->get("InputfieldText");
-                $f->attr('name', 'multiple_values_separator');
+                $f->attr('name', 'export_multiple_values_separator');
                 $f->label = __('Multiple values separator');
                 $f->description = __('Separator for multiple values like Page fields, files/images, multiplier, etc.');
                 $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
-                $f->value = $currentData['multipleValuesSeparator'];
+                $f->value = $currentData['exportMultipleValuesSeparator'];
                 $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
@@ -995,7 +996,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 <input id='Inputfield_export_column_separator' type='hidden' value='{$currentData['csvExportFieldSeparator']}' />
                 <input id='Inputfield_export_column_enclosure' type='hidden' value='{$currentData['csvExportFieldEnclosure']}' />
                 <input id='Inputfield_export_extension' type='hidden' value='{$currentData['csvExportExtension']}' />
-                <input id='Inputfield_multiple_values_separator' type='hidden' value='{$currentData['multipleValuesSeparator']}' />
+                <input id='Inputfield_export_multiple_values_separator' type='hidden' value='{$currentData['exportMultipleValuesSeparator']}' />
                 <input id='Inputfield_format_export' type='hidden' value='{$currentData['formatExport']}' />
                 <input id='Inputfield_export_names_first_row' type='hidden' value='{$currentData['columnsFirstRow']}' />
                 ";
@@ -1341,7 +1342,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             }
                         }
                         else {
-                            $np->$convertedFieldPairings[$i+1] = $childField;
+                            $f = $this->fields->get($convertedFieldPairings[$i+1]);
+                            if($f->type instanceof FieldtypePage) {
+                                $this->updatePageFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childField);
+                            }
+                            else {
+                                $np->$convertedFieldPairings[$i+1] = $childField;
+                            }
                             if($np->isChanged($convertedFieldPairings[$i+1])) {
                                 $np->of(false);
                                 $np->save($convertedFieldPairings[$i+1]);
@@ -1385,7 +1392,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     }
                     //populate new page with rest of the field values
                     else {
-                        $np->{$fieldsArray[$i]} = $childField;
+                        $f = $this->fields->get($fieldsArray[$i]);
+                        if($f->type instanceof FieldtypePage) {
+                            $this->updatePageFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childField);
+                        }
+                        else {
+                            $np->{$fieldsArray[$i]} = $childField;
+                        }
+
                         if($np->isChanged($fieldsArray[$i])) {
                             $np->of(false);
                             $np->save($fieldsArray[$i]);
@@ -1397,6 +1411,44 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
     }
 
+    private function updatePageFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childField) {
+        $inputfield = $f->getInputfield($np);
+        $options = $inputfield->getSelectablePages($np);
+        if($importMultipleValuesSeparator == '\r') $importMultipleValuesSeparator = chr(13);
+        if($importMultipleValuesSeparator == '\n') $importMultipleValuesSeparator = chr(10);
+        if($f->derefAsPage === 0) {
+            foreach(explode($importMultipleValuesSeparator, $childField) as $title) {
+                $pageMatch = wire('pages')->get("id=$options, title={$title}");
+                if(!$pageMatch->id) {
+                    $newPageFieldPage = $this->createNewPageFieldPage($title, $options);
+                    $np->$fieldsArrayItem->add($newPageFieldPage);
+                }
+                else {
+                    $np->$fieldsArrayItem->add($pageMatch);
+                }
+            }
+        }
+        else {
+            $pageMatch = wire('pages')->get("id=$options, title={$childField}");
+            if(!$pageMatch->id) {
+                $newPageFieldPage = $this->createNewPageFieldPage($childField, $options);
+                $np->$fieldsArrayItem = $newPageFieldPage;
+            }
+            else {
+                $np->$fieldsArrayItem = $pageMatch;
+            }
+        }
+        return $np;
+    }
+
+    private function createNewPageFieldPage($title, $options) {
+        $newPageFieldPage = new Page();
+        $newPageFieldPage->template = $options->first()->template;
+        $newPageFieldPage->parent = $options->first()->parent;
+        $newPageFieldPage->title = $this->sanitizer->text($title);
+        $newPageFieldPage->save();
+        return $newPageFieldPage;
+    }
 
     /**
      * Return an InputfieldsWrapper of Inputfields used to configure the class
@@ -2041,13 +2093,23 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->columnWidth = 25;
     $fieldset->add($f);
 
+    $f = wire('modules')->get("InputfieldText");
+    $f->attr('name', 'importMultipleValuesSeparator');
+    $f->label = __('Multiple values separator');
+    $f->description = __('Separator for multiple values like Page fields, etc.');
+    $f->notes = __('Default is | Other useful options include \r for new lines.');
+    $f->showIf = "editModes=add|update|replace";
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['importMultipleValuesSeparator'] : $data['importMultipleValuesSeparator'];
+    $f->columnWidth = 25;
+    $fieldset->add($f);
+
     $f = wire('modules')->get("InputfieldCheckbox");
     $f->attr('name', 'allowOverrideCsvImportSettings');
     $f->label = __('User override CSV settings');
     $f->description = __('Allow user to override CSV separator, enclosure, and ignore first row settings.');
     $f->showIf = "editModes=add|update|replace";
     $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['allowOverrideCsvImportSettings'] : $data['allowOverrideCsvImportSettings']) ? 'checked' : '' );
-    $f->columnWidth = 25;
+    $f->columnWidth = 100;
     $fieldset->add($f);
 
     $fieldset = wire('modules')->get("InputfieldFieldset");
@@ -2122,12 +2184,12 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldText");
-    $f->attr('name', 'multipleValuesSeparator');
+    $f->attr('name', 'exportMultipleValuesSeparator');
     $f->label = __('Multiple values separator');
     $f->description = __('Separator for multiple values like Page fields, files/images, multiplier, etc.');
     $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
     $f->showIf = "editModes=export";
-    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['multipleValuesSeparator'] : $data['multipleValuesSeparator'];
+    $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['exportMultipleValuesSeparator'] : $data['exportMultipleValuesSeparator'];
     $f->columnWidth = 34;
     $fieldset->add($f);
 

@@ -84,7 +84,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $extension = !is_null($event) ? $event->arguments(2) : wire('input')->get->ext;
         $namesFirstRow = !is_null($event) ? $event->arguments(3) : wire('input')->get->nfr;
         $namesFirstRow = $namesFirstRow == 'checked' || $namesFirstRow == '1' ? true : false;
-        $multipleValuesSeparator = !is_null($event) ? $event->arguments(4) : wire('input')->get->mvs;
+        $exportMultipleValuesSeparator = !is_null($event) ? $event->arguments(4) : wire('input')->get->mvs;
         $formatExport = !is_null($event) ? $event->arguments(5) : wire('input')->get->fe;
         $formatExport = $formatExport == 'checked' || $formatExport == 1 ? true : false;
         $fieldNames = !is_null($event) ? $event->arguments(6) : explode(',', wire('input')->get->fns);
@@ -99,9 +99,9 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $enclosure = $enclosure ? $enclosure : $currentData['csvExportFieldEnclosure'];
         $extension = $extension ? $extension : $currentData['csvExportExtension'];
         $namesFirstRow = $namesFirstRow ? $namesFirstRow : $currentData['columnsFirstRow'];
-        $multipleValuesSeparator = $multipleValuesSeparator ? $multipleValuesSeparator : $currentData['multipleValuesSeparator'];
-        if($multipleValuesSeparator == '\r') $multipleValuesSeparator = chr(13);
-        if($multipleValuesSeparator == '\n') $multipleValuesSeparator = chr(10);
+        $exportMultipleValuesSeparator = $exportMultipleValuesSeparator ? $exportMultipleValuesSeparator : $currentData['exportMultipleValuesSeparator'];
+        if($exportMultipleValuesSeparator == '\r') $exportMultipleValuesSeparator = chr(13);
+        if($exportMultipleValuesSeparator == '\n') $exportMultipleValuesSeparator = chr(10);
         $formatExport = isset($formatExport) ? $formatExport : $currentData['formatExport'];
         $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
         if($fieldNames[0] == 'undefined') {
@@ -172,11 +172,11 @@ class ProcessChildrenCsvExport extends Process implements Module {
                 //Page fields
                 elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypePage) {
                     if(method_exists($p->$fieldName,'implode')) {
-                        if($p->$fieldName->implode($multipleValuesSeparator, 'title')) { // title available
-                            $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'title');
+                        if($p->$fieldName->implode($exportMultipleValuesSeparator, 'title')) { // title available
+                            $formattedValue = $p->$fieldName->implode($exportMultipleValuesSeparator, 'title');
                         }
                         else { // no title so use name - eg a page field selecting from the user template
-                            $formattedValue = $p->$fieldName->implode($multipleValuesSeparator, 'name');
+                            $formattedValue = $p->$fieldName->implode($exportMultipleValuesSeparator, 'name');
                         }
                     }
                     else {
@@ -189,7 +189,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
                     if(count($p->$fieldName)>0) {
                         $values = array();
                         foreach($p->$fieldName as $value) $values[] = $value;
-                        $formattedValue = implode($multipleValuesSeparator, $values);
+                        $formattedValue = implode($exportMultipleValuesSeparator, $values);
                     }
                     $p->of($formatExport);
                 }
