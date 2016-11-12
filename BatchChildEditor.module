@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 140,
+            'version' => 141,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -772,7 +772,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     '<input id="hiddenStatus_'.$cp->id.'" class="hiddenStatus" name="hiddenStatus['.$cp->id.']" type="checkbox" '.($cp->is(Page::statusHidden) ? 'checked' : '').'/>',
                     '<input id="unpublishedStatus_'.$cp->id.'" class="unpublishedStatus" name="unpublishedStatus['.$cp->id.']" type="checkbox"'.($cp->is(Page::statusUnpublished) ? ' checked' : '').(!$allowPublish ? ' disabled' : '').'/>',
                     $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
-                    $cp->editable() ? '<a class="childChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#"><i style="cursor:pointer" class="fa fa-pencil"></i></a>' : '',
+                    $cp->editable() ? '<a class="batchChildTableEdit" data-url="./?id='.$cp->id.'&amp;modal=1" href="#"><i style="cursor:pointer" class="fa fa-pencil"></i></a>' : '',
                     $cp->trashable() ? "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>" : ""
                 );
                 $table->row($row, array('class' => 'pid_'.$cp->id));
@@ -791,7 +791,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $button->attr('class', 'ui-button ui-widget ui-corner-all ui-state-default InputfieldChildTableAddRow');
             }
 
-            $results->attr('value', $hiddenInfo . '<div class="childChildTableContainer">' . $table->render() . '</div>' . ($pp->addable() ? $button->render() : ''));
+            $results->attr('value', $hiddenInfo . '<div class="batchChildTableContainer">' . $table->render() . '</div>' . ($pp->addable() ? $button->render() : ''));
             $childEditSet->append($results);
         }
 

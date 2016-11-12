@@ -7,7 +7,7 @@ function getUrlVars(url) {
 }
 
 
-function childChildTableDialog() {
+function batchChildTableDialog() {
 
     var $a = $(this);
     var url = $a.attr('data-url')
@@ -94,7 +94,7 @@ function childChildTableDialog() {
 }
 
 
-function childChildTableSortable($table) {
+function batchChildTableSortable($table) {
     if(!$table.is("tbody")) $table = $table.find("tbody");
     $table.sortable({
         axis: 'y',
@@ -129,12 +129,11 @@ $(document).ready(function() {
      * @updated 2015-09-15
      */
 
-    var bce_adminDataTableSelector = '.childChildTableContainer .AdminDataTable',
+    var bce_adminDataTableSelector = '.batchChildTableContainer .AdminDataTable',
         bce_columnControlClass = 'bce-column-toggle',
         bce_allowedColumnControls = ['input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
         bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="position: relative; top: 2px; margin-right: 4px;" />',
         bce_controlEventType = 'change',
-        bce_tabID = 'Inputfield_Batch_Child_Editor',
         bce_fieldID = 'ProcessPageEditChildren',
         bce_fieldsetID = 'Inputfield_child_batch_editor',
         bce_deletedRowClass = 'InputfieldChildTableRowDeleted',
@@ -152,9 +151,7 @@ $(document).ready(function() {
 
     // add column controls (new tab mode)
     $(document).on('wiretabclick', function ($event, $newTab) {
-        if ($newTab.attr('id') == bce_tabID) {
-            addBceColumnControls();
-        }
+        addBceColumnControls();
     });
 
     /**
@@ -278,7 +275,7 @@ $(document).ready(function() {
     // End of adding toggle controls to column headers.
 
 
-    $(document).on('click', '.childChildTableEdit', childChildTableDialog);
+    $(document).on('click', '.batchChildTableEdit', batchChildTableDialog);
 
     var i=0;
     $(document).on('click', 'button.InputfieldChildTableAddRow', function() {
@@ -328,7 +325,7 @@ $(document).ready(function() {
     // make rows sortable - trigger this on first ("one") mouseover of a sort handle in case BCE fieldset is being opened via AJAX
     $(document).one('mouseover', '.InputfieldChildTableRowSortHandle', function() {
         $("table.AdminDataTable").each(function() {
-            childChildTableSortable($(this));
+            batchChildTableSortable($(this));
         });
     });
 
