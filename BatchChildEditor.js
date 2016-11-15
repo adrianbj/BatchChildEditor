@@ -140,7 +140,7 @@ $(document).ready(function() {
         bce_isColumnControlsAdded = false;
 
     // add column controls (top, bottom and replace modes)
-    $(document).on('reloaded', '#' + bce_fieldID, function () {
+    $(document).on('loaded', '#' + bce_fieldID, function () {
         addBceColumnControls();
     });
 
@@ -150,7 +150,7 @@ $(document).ready(function() {
     }
 
     // add column controls (new tab mode)
-    $(document).on('wiretabclick', function ($event, $newTab) {
+    $(document).on('wiretabclick', function () {
         addBceColumnControls();
     });
 
@@ -182,53 +182,59 @@ $(document).ready(function() {
      */
     function addBceColumnControls() {
 
-        if (bce_isColumnControlsAdded) {
-            return false;
-        }
+        //this timeout is a bit of a hack that should be improved in the future
+        setTimeout(function(){
 
-        if ($(bce_adminDataTableSelector).length === 0) {
-            return false;
-        }
-
-        // do not add controls if there is no more than 1 row
-        if ($(bce_adminDataTableSelector + ' tbody tr').length <= 1) {
-            return false;
-        }
-
-        //$(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"], i.InputfieldChildTableRowDeleteLink', function () {
-        $(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"]', function () {
-            setColumnControlStates($(this));
-        });
-
-        // add new controls
-        for (var i = 0; i < bce_allowedColumnControls.length; i++) {
-
-            var currentControl = bce_allowedColumnControls[i];
-
-            // skip non-existing elements
-            if (!$(currentControl).length) {
-                continue;
+            if (bce_isColumnControlsAdded) {
+                return false;
             }
 
-            // get index of first checkbox in the first row
-            var index = $(bce_adminDataTableSelector + ' ' + currentControl + ':eq(0)').parent().index();
+            if ($(bce_adminDataTableSelector).length === 0) {
+                return false;
+            }
 
-            // do the add
-            $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
+            // do not add controls if there is no more than 1 row
+            if ($(bce_adminDataTableSelector + ' tbody tr').length <= 1) {
+                return false;
+            }
 
-            // set initial checkbox states
-            setColumnControlStates($(bce_adminDataTableSelector + ' th:eq(' + index + ') input'));
+            //$(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"], i.InputfieldChildTableRowDeleteLink', function () {
+            $(bce_adminDataTableSelector + ' tbody').on('click', 'input[type="checkbox"]', function () {
+                setColumnControlStates($(this));
+            });
 
-            // add event
-            addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
-        }
+            // add new controls
+            for (var i = 0; i < bce_allowedColumnControls.length; i++) {
 
-        // disable thead break to multiline
-        $(bce_adminDataTableSelector + ' thead').css('white-space', 'nowrap');
+                var currentControl = bce_allowedColumnControls[i];
 
-        bce_isColumnControlsAdded = true;
+                // skip non-existing elements
+                if (!$(currentControl).length) {
+                    continue;
+                }
 
-        return true;
+                // get index of first checkbox in the first row
+                var index = $(bce_adminDataTableSelector + ' ' + currentControl + ':eq(0)').parent().index();
+
+                // do the add
+                $(bce_adminDataTableSelector + ' th:eq(' + index + ')').prepend($(bce_toggleControl));
+
+                // set initial checkbox states
+                setColumnControlStates($(bce_adminDataTableSelector + ' th:eq(' + index + ') input'));
+
+                // add event
+                addColumnControlEvent(bce_adminDataTableSelector, currentControl, index);
+            }
+
+            // disable thead break to multiline
+            $(bce_adminDataTableSelector + ' thead').css('white-space', 'nowrap');
+
+            bce_isColumnControlsAdded = true;
+
+            return true;
+
+        }, 1000);
+
     }
 
 
