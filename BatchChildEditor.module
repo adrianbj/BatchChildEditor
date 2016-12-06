@@ -21,8 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 146,
-            'version' => 147,
+            'version' => 148,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -93,9 +92,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "importMultipleValuesSeparator" => "|",
                 "exportMultipleValuesSeparator" => "|",
                 "formatExport" => 1,
+                "newImageFirst" => "",
                 "allowOverrideCsvImportSettings" => "",
                 "allowOverrideCsvExportSettings" => "",
                 "fieldPairings" => "",
+                "matchByFirstField" => "",
+                "noCaseUpdate" => "",
+                "addNewNoMatch" => "",
                 "trashOrDelete" => "trash",
                 "position" => "bottom",
                 "insertAfterField" => array(),
@@ -621,7 +624,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->showIf = "edit_mode=update";
                 $f->label = __("Text / Paste CSV");
                 if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
-                $f->attr('value', $this->childPages);
+                if(!$currentData['matchByFirstField']) $f->attr('value', $this->childPages);
                 if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
@@ -1250,9 +1253,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         if($childPages == '') return;
 
-        // if there is no new line at the end, add one to fix issue if last item in CSV row has enclosures but others don't
-        if(substr($childPages, -1) != "\r" && substr($childPages, -1) != "\n") $childPages .= PHP_EOL;
-
         require_once __DIR__ . '/parsecsv.lib.php';
 
         $childPagesArray = new parseCSV();
@@ -1312,7 +1312,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 if($titleKey && $row[$titleKey-1] == '') continue;
                 //update mode so re-title/re-name existing page
                 if($this->input->post->edit_mode == "update") {
-                    $np = $pp->children("include=all")->eq($x-1);
+                    $np = $currentData['matchByFirstField'] ? $pp->child($convertedFieldPairings[$i+1]."=".$this->sanitizer->selectorValue($row[0]).", include=all") : $pp->children("include=all")->eq($x-1);
+                    if(!$np->id) {
+                        if($currentData['addNewNoMatch']) {
+                            $np = $this->newPage($pp, $childTemplate);
+                            $np->of(false);
+                            $np->save();
+                        }
+                        else {
+                            continue;
+                        }
+                    }
                     if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
                         if($titleKey) $np->name = trim($this->sanitizer->pageName($row[$titleKey-1], Sanitizer::translate));
                     }
@@ -1322,7 +1332,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $np = $this->newPage($pp, $childTemplate);
                 }
 
-                if($titleKey) $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
+                if($titleKey) {
+                    if(!$currentData['noCaseUpdate'] && $np->title !== trim($this->sanitizer->text($row[$titleKey-1]))) {
+                        $np->title = trim($this->sanitizer->text($row[$titleKey-1]));
+                    }
+                }
                 if($np->isChanged("title")) {
                     $np->of(false);
                     $np->save();
@@ -1351,7 +1365,26 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                                 $this->updatePageFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childField);
                             }
                             elseif($f->type instanceof FieldtypeFile) {
-                                if(file_exists($childField)) $np->{$convertedFieldPairings[$i+1]}->add($childField);
+                                if(file_exists($childField) || strpos($childField,'//') !== false){
+                                    try {
+                                        $imageName = $this->sanitizer->pageName(pathinfo($childField, PATHINFO_BASENAME), Sanitizer::translate);
+                                        $existingImage = $np->{$convertedFieldPairings[$i+1]}->get("name=".$imageName);
+                                        if($this->fields->get($convertedFieldPairings[$i+1])->overwrite && $existingImage) {
+                                            $np->of(false);
+                                            $np->images->remove($existingImage);
+                                            $np->save('images');
+                                        }
+                                        if($this->fields->get($convertedFieldPairings[$i+1])->maxFiles == 0 || $np->{$convertedFieldPairings[$i+1]}->count() < $this->fields->get($convertedFieldPairings[$i+1])->maxFiles) {
+                                            $np->{$convertedFieldPairings[$i+1]}->add($childField);
+                                            if($currentData['newImageFirst'] && $np->{$convertedFieldPairings[$i+1]}->count() > 0) {
+                                                $np->{$convertedFieldPairings[$i+1]}->insertBefore($np->{$convertedFieldPairings[$i+1]}->last(), $np->{$convertedFieldPairings[$i+1]}->first());
+                                            }
+                                        }
+                                    }
+                                    catch (Exception $e) {
+                                        //image must not be available at remote URL
+                                    }
+                                }
                             }
                             else {
                                 $np->{$convertedFieldPairings[$i+1]} = $childField;
@@ -1855,12 +1888,12 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->required = true;
     $f->columnWidth = 25;
     $f->description = __('Which modes you want available. If more than one checked, then the user can decide.');
-    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) $f->addOption("lister","Lister");
-    $f->addOption("edit","Edit");
-    $f->addOption("add","Add");
-    $f->addOption("update","Update");
-    $f->addOption("replace","Replace");
-    $f->addOption("export","Export CSV");
+    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) $f->addOption("lister", __("Lister"));
+    $f->addOption("edit", __("Edit"));
+    $f->addOption("add", __("Add"));
+    $f->addOption("update", __("Update"));
+    $f->addOption("replace", __("Replace"));
+    $f->addOption("export", __("Export CSV"));
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['editModes'] : $data['editModes'];
     $f->notes = __("The Edit and Add modes are safer than the Update and Replace modes, because they are non-destructive.\n\nUpdate will edit the content of fields of existing pages. Replace will delete all child pages and create new ones.");
     $fieldset->add($f);
@@ -1871,13 +1904,13 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->columnWidth = 25;
     $f->showIf = "editModes.count>1";
     $f->description = __('If more than one mode available to user, which one should be open by default.');
-    $f->addOption("","None");
-    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) $f->addOption("lister","Lister");
-    $f->addOption("edit","Edit");
-    $f->addOption("add","Add");
-    $f->addOption("update","Update");
-    $f->addOption("replace","Replace");
-    $f->addOption("export","Export CSV");
+    $f->addOption("", __("None"));
+    if(defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) $f->addOption("lister", __("Lister"));
+    $f->addOption("edit", __("Edit"));
+    $f->addOption("add", __("Add"));
+    $f->addOption("update", __("Update"));
+    $f->addOption("replace", __("Replace"));
+    $f->addOption("export", __("Export CSV"));
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['defaultMode'] : $data['defaultMode'];
     $fieldset->add($f);
 
@@ -1957,8 +1990,8 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('Trash or Delete');
     $f->columnWidth = 25;
     $f->description = __('Whether you want deleted pages moved to the trash or permanently deleted.');
-    $f->addOption("trash","Trash");
-    $f->addOption("delete","Delete");
+    $f->addOption("trash", __("Trash"));
+    $f->addOption("delete", __("Delete"));
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['trashOrDelete'] : $data['trashOrDelete'];
     $fieldset->add($f);
 
@@ -1996,7 +2029,7 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('Default Columns');
     $f->showIf = "editModes=lister";
     $f->description = __('Which columns displayed by default.');
-    $f->addOption('title', 'Title');
+    $f->addOption('title', __("Title"));
     foreach($data['systemFields'] as $systemField => $systemFieldLabel) {
         $f->addOption($systemField, $systemFieldLabel);
     }
@@ -2045,9 +2078,9 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->columnWidth = wire('input')->get->id ? 25 : 50;
     $f->description = __('Which page entry options do you want available.');
     $f->notes = __("For creating page title/names only, then Text / Paste is likely the most relevant option. CSV options to the right only relevant if populating other page fields in addition to the title/name.");
-    $f->addOption("paste","Text / Paste");
-    $f->addOption("link","Link (URL)");
-    $f->addOption("upload","Upload");
+    $f->addOption("paste", __("Text / Paste"));
+    $f->addOption("link", __("Link (URL)"));
+    $f->addOption("upload", __("Upload"));
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptions'] : $data['csvOptions'];
     $fieldset->add($f);
 
@@ -2058,9 +2091,9 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->columnWidth = wire('input')->get->id ? 25 : 50;
     $f->description = __('Which page entry options do you want open vs collapsed.');
     $f->notes = __("Checked options will be open by default.");
-    $f->addOption("paste","Text / Paste");
-    $f->addOption("link","Link (URL)");
-    $f->addOption("upload","Upload");
+    $f->addOption("paste", __("Text / Paste"));
+    $f->addOption("link", __("Link (URL)"));
+    $f->addOption("upload", __("Upload"));
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['csvOptionsCollapsed'] : $data['csvOptionsCollapsed'];
     $fieldset->add($f);
 
@@ -2075,6 +2108,37 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->columnWidth = 50;
         $f->value = isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['fieldPairings'] : '';
         $fieldset->add($f);
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'matchByFirstField');
+        $f->label = __('Match children by first field pairing field');
+        $f->showIf = "editModes=update";
+        $f->columnWidth = 33;
+        $f->description = __("If checked, child pages will be matched by the content of the first field pairing field, not the order of rows in the CSV file. If checked, the titles of existing child pages won't be shown in the Text/Paste input field.");
+        $f->notes = __("Only relevant in Update mode. This is useful if you want to update only certain child pages. Note that you must have the field defined in the field pairings setting.");
+        $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['matchByFirstField'] : $data['matchByFirstField']) ? 'checked' : '' );
+        $fieldset->add($f);
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'noCaseUpdate');
+        $f->label = __("Don't update case of matched field");
+        $f->showIf = "editModes=update, matchByFirstField=1";
+        $f->columnWidth = 34;
+        $f->description = __('If checked, and the matched field was a case-insensitive match, do not update this field.');
+        $f->notes = __("Only relevant in Update mode and if 'Match children by first field pairing field' is checked.");
+        $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['noCaseUpdate'] : $data['noCaseUpdate']) ? 'checked' : '' );
+        $fieldset->add($f);
+
+        $f = wire('modules')->get("InputfieldCheckbox");
+        $f->attr('name', 'addNewNoMatch');
+        $f->label = __('Add new child page if no match');
+        $f->showIf = "editModes=update, matchByFirstField=1";
+        $f->columnWidth = 33;
+        $f->description = __('If checked, a new child page will be created if the match by field returns no matching child page.');
+        $f->notes = __("Only relevant in Update mode and if 'Match children by first field pairing field' is checked.");
+        $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['addNewNoMatch'] : $data['addNewNoMatch']) ? 'checked' : '' );
+        $fieldset->add($f);
+
     }
 
     $f = wire('modules')->get("InputfieldText");
@@ -2111,6 +2175,16 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->showIf = "editModes=add|update|replace";
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['importMultipleValuesSeparator'] : $data['importMultipleValuesSeparator'];
     $f->columnWidth = 25;
+    $fieldset->add($f);
+
+    $f = wire('modules')->get("InputfieldCheckbox");
+    $f->attr('name', 'newImageFirst');
+    $f->label = __('New Image First');
+    $f->description = __('If new image added, add it in first place, rather than last.');
+    $f->notes = __("Only relevant in Update mode.");
+    $f->showIf = "editModes=update";
+    $f->attr('checked', ($pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['newImageFirst'] : $data['newImageFirst']) ? 'checked' : '' );
+    $f->columnWidth = 100;
     $fieldset->add($f);
 
     $f = wire('modules')->get("InputfieldCheckbox");
@@ -2232,11 +2306,11 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
     $f->label = __('Position');
     $f->columnWidth = 14;
     $f->description = __('Where to position the Batch Child Editor tool. Replace will remove the existing page tree. New Tab will put this editor in a new tab. Inline Fieldset will add the editor to the Content tab.');
-    $f->addOption("top","Top");
-    $f->addOption("bottom","Bottom");
-    $f->addOption("replace","Replace");
-    $f->addOption("newTab","New Tab");
-    $f->addOption("inlineFieldset","Inline Fieldset");
+    $f->addOption("top", __("Top"));
+    $f->addOption("bottom", __("Bottom"));
+    $f->addOption("replace", __("Replace"));
+    $f->addOption("newTab", __("New Tab"));
+    $f->addOption("inlineFieldset", __("Inline Fieldset"));
     $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['position'] : $data['position'];
     $fieldset->add($f);
 
@@ -2293,8 +2367,8 @@ function buildCoreSettings ($data, $wrapper, $pid = null) {
         $f->columnWidth = 14;
         $f->description = __('If initially collapsed, how should it be opened?');
         $f->notes = __('AJAX can be useful to improve performance of the page editor for page trees with a lot of children. Especially useful if you are using the "New Tab" position option.');
-        $f->addOption("normal","Normal");
-        $f->addOption("ajax","AJAX");
+        $f->addOption("normal", __("Normal"));
+        $f->addOption("ajax", __("AJAX"));
         $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['openMethod'] : $data['openMethod'];
         $fieldset->add($f);
     }
