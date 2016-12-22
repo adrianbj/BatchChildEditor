@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 149,
+            'version' => 150,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -1261,6 +1261,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         if($childPages == '') return;
 
+        // if there is no new line at the end, add one to fix issue if last item in CSV row has enclosures but others don't
+        if(substr($childPages, -1) != "\r" && substr($childPages, -1) != "\n") $childPages .= PHP_EOL;
+
         require_once __DIR__ . '/parsecsv.lib.php';
 
         $childPagesArray = new parseCSV();
@@ -1352,8 +1355,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
 
             //creating pages and populating fields
-            foreach($row as $childField) {
-                $childField = trim($this->sanitizer->purify($childField));
+            foreach($row as $childFieldValue) {
+                $childFieldValue = trim($this->sanitizer->purify($childFieldValue));
                 //if fieldPairings is defined now populate the rest of the fields
                 if($currentData['fieldPairings'] != '') {
                     //populate new page with rest of the field values
@@ -1361,7 +1364,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         //check for subfields (eg textareas pro field) with a period (.) separator
                         if (strpos($convertedFieldPairings[$i+1],'.')){
                             $fieldParts = explode('.', $convertedFieldPairings[$i+1]);
-                            $np->$fieldParts[0]->$fieldParts[1] = $childField;
+                            $np->$fieldParts[0]->$fieldParts[1] = $childFieldValue;
                             if($np->isChanged($fieldParts[0])) {
                                 $np->of(false);
                                 $np->save($fieldParts[0]);
@@ -1370,32 +1373,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         else {
                             $f = $this->fields->get($convertedFieldPairings[$i+1]);
                             if($f->type instanceof FieldtypePage) {
-                                $this->updatePageFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childField);
+                                $this->updatePageFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue);
                             }
                             elseif($f->type instanceof FieldtypeFile) {
-                                if(file_exists($childField) || strpos($childField,'//') !== false){
-                                    try {
-                                        $imageName = $this->sanitizer->pageName(pathinfo($childField, PATHINFO_BASENAME), Sanitizer::translate);
-                                        $existingImage = $np->{$convertedFieldPairings[$i+1]}->get("name=".$imageName);
-                                        if($this->fields->get($convertedFieldPairings[$i+1])->overwrite && $existingImage) {
-                                            $np->of(false);
-                                            $np->images->remove($existingImage);
-                                            $np->save('images');
-                                        }
-                                        if($this->fields->get($convertedFieldPairings[$i+1])->maxFiles == 0 || $np->{$convertedFieldPairings[$i+1]}->count() < $this->fields->get($convertedFieldPairings[$i+1])->maxFiles) {
-                                            $np->{$convertedFieldPairings[$i+1]}->add($childField);
-                                            if($currentData['newImageFirst'] && $np->{$convertedFieldPairings[$i+1]}->count() > 0) {
-                                                $np->{$convertedFieldPairings[$i+1]}->insertBefore($np->{$convertedFieldPairings[$i+1]}->last(), $np->{$convertedFieldPairings[$i+1]}->first());
-                                            }
-                                        }
-                                    }
-                                    catch (Exception $e) {
-                                        //image must not be available at remote URL
-                                    }
-                                }
+                                $this->updateFileFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue, $currentData['newImageFirst']);
                             }
                             else {
-                                $np->{$convertedFieldPairings[$i+1]} = $childField;
+                                $np->{$convertedFieldPairings[$i+1]} = $childFieldValue;
                             }
                             if($np->isChanged($convertedFieldPairings[$i+1])) {
                                 $np->of(false);
@@ -1408,13 +1392,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 else {
                     //first item is the page title so create new page
                     if($i==0) {
-                        if($childField == '') continue;
+                        if($childFieldValue == '') continue;
                         //update mode so re-title/re-name existing page
                         if($this->input->post->edit_mode == "update") {
                             $np = $pp->children("include=all")->eq($x-1);
                             if($this->input->post->userOverwriteNames || (!$this->input->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])){
                                 if($np->id) {
-                                    $np->name = trim($this->sanitizer->pageName($childField, Sanitizer::translate));
+                                    $np->name = trim($this->sanitizer->pageName($childFieldValue, Sanitizer::translate));
                                 }
                                 // for new pages added at the end when using Update mode
                                 else {
@@ -1428,7 +1412,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np = $this->newPage($pp, $childTemplate);
                         }
 
-                        $np->title = trim($this->sanitizer->text($childField));
+                        $np->title = trim($this->sanitizer->text($childFieldValue));
                         if($np->isChanged("title")) {
                             $np->of(false);
                             $np->save();
@@ -1442,13 +1426,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     else {
                         $f = $this->fields->get($fieldsArray[$i]);
                         if($f->type instanceof FieldtypePage) {
-                            $this->updatePageFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childField);
+                            $this->updatePageFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue);
                         }
                         elseif($f->type instanceof FieldtypeFile) {
-                            if(file_exists($childField)) $np->{$fieldsArray[$i]}->add($childField);
+                            $this->updateFileFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue, $currentData['newImageFirst']);
                         }
                         else {
-                            $np->{$fieldsArray[$i]} = $childField;
+                            $np->{$fieldsArray[$i]} = $childFieldValue;
                         }
 
                         if($np->isChanged($fieldsArray[$i])) {
@@ -1462,13 +1446,39 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
     }
 
-    private function updatePageFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childField) {
+    private function updateFileFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childFieldValue, $newImageFirst = false) {
+        $childFieldValues = $childFieldValue;
+        foreach(explode($importMultipleValuesSeparator, $childFieldValues) as $childFieldValue) {
+            if(file_exists($childFieldValue) || strpos($childFieldValue,'//') !== false){
+                try {
+                    $imageName = $this->sanitizer->pageName(pathinfo($childFieldValue, PATHINFO_BASENAME), Sanitizer::translate);
+                    $existingImage = $np->$fieldsArrayItem->get("name=".$imageName);
+                    if($this->fields->get($fieldsArrayItem)->overwrite && $existingImage) {
+                        $np->of(false);
+                        $np->{$fieldsArrayItem}->remove($existingImage);
+                        $np->save($fieldsArrayItem);
+                    }
+                    if($this->fields->get($fieldsArrayItem)->maxFiles == 0 || $np->$fieldsArrayItem->count() < $this->fields->get($fieldsArrayItem)->maxFiles) {
+                        $np->$fieldsArrayItem->add($childFieldValue);
+                        if($newImageFirst && $np->$fieldsArrayItem->count() > 0) {
+                            $np->$fieldsArrayItem->insertBefore($np->$fieldsArrayItem->last(), $np->$fieldsArrayItem->first());
+                        }
+                    }
+                }
+                catch (Exception $e) {
+                    //image must not be available at remote URL
+                }
+            }
+        }
+    }
+
+    private function updatePageFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childFieldValue) {
         $inputfield = $f->getInputfield($np);
         $options = $inputfield->getSelectablePages($np);
         if($importMultipleValuesSeparator == '\r') $importMultipleValuesSeparator = chr(13);
         if($importMultipleValuesSeparator == '\n') $importMultipleValuesSeparator = chr(10);
         if($f->derefAsPage === 0) {
-            foreach(explode($importMultipleValuesSeparator, $childField) as $title) {
+            foreach(explode($importMultipleValuesSeparator, $childFieldValue) as $title) {
                 $pageMatch = wire('pages')->get("id=$options, title={$title}");
                 if(!$pageMatch->id) {
                     $newPageFieldPage = $this->createNewPageFieldPage($title, $options);
@@ -1480,9 +1490,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
         }
         else {
-            $pageMatch = wire('pages')->get("id=$options, title={$childField}");
+            $pageMatch = wire('pages')->get("id=$options, title={$childFieldValue}");
             if(!$pageMatch->id) {
-                $newPageFieldPage = $this->createNewPageFieldPage($childField, $options);
+                $newPageFieldPage = $this->createNewPageFieldPage($childFieldValue, $options);
                 $np->$fieldsArrayItem = $newPageFieldPage;
             }
             else {
