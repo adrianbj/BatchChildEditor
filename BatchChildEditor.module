@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => 152,
+            'version' => 153,
             'permanent' => false,
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
@@ -1481,7 +1481,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if($f->derefAsPage === 0) {
             foreach(explode($importMultipleValuesSeparator, $childFieldValue) as $title) {
                 $pageMatch = wire('pages')->get("id=$options, title={$title}");
-                if(!$pageMatch->id) {
+                if(!$pageMatch->id && $title!='') {
                     $newPageFieldPage = $this->createNewPageFieldPage($title, $options);
                     $np->$fieldsArrayItem->add($newPageFieldPage);
                 }
@@ -1492,7 +1492,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
         else {
             $pageMatch = wire('pages')->get("id=$options, title={$childFieldValue}");
-            if(!$pageMatch->id) {
+            if(!$pageMatch->id && $title!='') {
                 $newPageFieldPage = $this->createNewPageFieldPage($childFieldValue, $options);
                 $np->$fieldsArrayItem = $newPageFieldPage;
             }
