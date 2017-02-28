@@ -1,0 +1,110 @@
+.bcePageName {
+    display: inline-block;
+}
+
+table#bceLanguages {
+    border-collapse: collapse;
+    padding: 5px;
+}
+
+table#bceLanguages tr td {
+    background: #F0F3F7;
+}
+
+table#bceLanguages td, table#bceLanguages th {
+    border: 1px solid #C9D4E1 !important;
+    padding: 5px;
+}
+
+.ui-tooltip {
+    max-width: 95% !important;
+    background: #FFFFFF !important;
+    padding: 0 !important;
+    color: #222222 !important;
+    border: 1px solid #979797;
+    border-radius: 0 !important;
+    text-align: left !important;
+    font-weight: normal !important;
+    font-size: 13px !important;
+    font-stretch: none !important;
+    text-decoration: none !important;
+    box-shadow: none !important
+}
+
+.batchChildTableContainer .bceLangInfoRow {
+    padding: 0;
+    background: #F0F3F7;
+}
+
+.batchChildTableContainer .bceLangInfoRow > td > div {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s;
+}
+
+.batchChildTableContainer .pageinfo-visible + tr.bceLangInfoRow > td > div {
+    max-height: 600px;
+}
+
+.batchChildTableContainer .pageinfo-visible .bceTogglePageInfo:before {
+    content: "\f147"
+}
+
+.batchChildTableContainer table {
+    border-collapse: separate;
+}
+
+.batchChildTableContainer table.bceLanguages {
+    width: 100%;
+    font-size: 0.9em;
+    margin-bottom: 0.5em;
+}
+
+.batchChildTableContainer .bceLangInfoRow:hover td {
+    background: inherit !important;
+}
+
+.bceTogglePageInfo {
+    cursor: pointer;
+    padding: 0.2em;
+    position: relative;
+    top: 1px;
+    margin-right: 0.2em;
+}
+
+.batchChildTableContainer table.bceLanguages th {
+    border-bottom-style: solid;
+    color: inherit;
+    opacity: 0.84;
+    cursor: default;
+}
+
+.batchChildTableContainer .bceLanguages td {
+    padding: 0.2em 0.5em 0.2em 0 !important;
+    width: 35%;
+    border-right: none !important;
+    border-left: none !important;
+}
+
+.batchChildTableContainer .bceLanguages tr td:first-child {
+    width: 20%;
+}
+
+.batchChildTableContainer .bceLanguages tr td:last-child {
+    width: 10%;
+}
+
+.batchChildTableContainer .bceLanguages tr:hover td {
+    background: #E2E9EF !important;
+}
+
+.batchChildTableContainer .bceLangInfoRow > td {
+    background: inherit !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* drag-and-drop handle icon */
+.batchChildTableContainer > table > tbody > tr > td:first-child {
+    text-align: center;
+}

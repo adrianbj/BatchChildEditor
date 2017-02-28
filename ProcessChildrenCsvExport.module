@@ -50,7 +50,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
      */
     public function init() {
         parent::init();
-        $this->addHook('Page::exportCsv', $this, 'exportCsv'); // not limited to table-csv-export permission because only relevant to front-end
+        $this->addHook('Page::exportCsv', $this, 'exportCsv'); /* not limited to table-csv-export permission because only relevant to front-end */
     }
 
     /**

@@ -1,6 +1,6 @@
 function getUrlVars(url) {
     var vars = {};
-    var parts = url.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+    var parts = url.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (m, key, value) {
         vars[key] = value;
     });
     return vars;
@@ -16,10 +16,11 @@ function batchChildTableDialog() {
 
     var dialogPageID = 0;
 
-    $iframe.load(function() {
+    $iframe.load(function () {
 
         var buttons = [];
         var pid = getUrlVars(url)["id"];
+        var langid = getUrlVars(url)["lang"];
         var $icontents = $iframe.contents();
         var initTemplate = $icontents.find('#template option:selected').text();
         var n = 0;
@@ -32,36 +33,42 @@ function batchChildTableDialog() {
         closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
 
         // copy buttons in iframe to dialog
-        $icontents.find("#content form button.ui-button[type=submit], button.ui-button[name=submit_delete]").each(function() {
+        $icontents.find("#content form button.ui-button[type=submit], button.ui-button[name=submit_delete]").each(function () {
             var $button = $(this);
             var text = $button.text();
             var skip = false;
             // avoid duplicate buttons
-            for(i = 0; i < buttons.length; i++) {
-                if(buttons[i].text == text || text.length < 1) skip = true;
+            for (i = 0; i < buttons.length; i++) {
+                if (buttons[i].text == text || text.length < 1) skip = true;
             }
             // ignore Move to Trash button because we need to add click event to it separately
-            if(text == 'Move to Trash') skip = true;
+            if (text == 'Move to Trash') skip = true;
 
-            if(!skip) {
+            if (!skip) {
                 buttons[n] = {
                     'text': text,
                     'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
-                    'click': function() {
+                    'click': function () {
                         $button.click();
                         //if template has changed, then don't close on save as may need to accept confirmation of change
-                        if(closeOnSave && initTemplate == $icontents.find('#template option:selected').text()) setTimeout(function() {
+                        if (closeOnSave && initTemplate == $icontents.find('#template option:selected').text()) setTimeout(function () {
                             $iframe.dialog('close');
-                            $('#'+pid).val($icontents.find('#Inputfield_title').val());
-                            $('#name_'+pid).text($icontents.find('#Inputfield__pw_page_name').val());
+                            var titleFieldId = langid ? '#Inputfield_title__' + langid : '#Inputfield_title';
+                            var titleVal = $icontents.find(titleFieldId).val();
+                            $('#' + pid).val(titleVal);
+                            $('#' + pid).attr('placeholder', $icontents.find('#Inputfield_title').val());
+                            var nameFieldId = langid ? '#Inputfield__pw_page_name' + langid : '#Inputfield__pw_page_name';
+                            var nameVal = $icontents.find(nameFieldId).val();
+                            $('#name_' + pid).text(nameVal);
+                            if (langid) $('input[id=langActiveStatus_' + pid + ']').prop('checked', $icontents.find('input[name=status' + langid + ']').is(':checked'));
                             //version for when template is changeable and in a select dropdown
-                            $('select[id=template_'+pid).val($icontents.find('#template option:selected').val());
+                            $('select[id=template_' + pid).val($icontents.find('#template option:selected').val());
                             //version for when edit mode doesn't allow changing template, so it's just in a span
-                            $('span#template_'+pid).text($icontents.find('#template option:selected').text());
-                            $('input[id=hiddenStatus_'+pid+']').prop('checked', $icontents.find('#Inputfield_status_1024').is(':checked'));
-                            $('input[id=unpublishedStatus_'+pid+']').prop('checked', $icontents.find('#Inputfield_status_2048').is(':checked'));
+                            $('span#template_' + pid).text($icontents.find('#template option:selected').text());
+                            $('input[id=hiddenStatus_' + pid + ']').prop('checked', $icontents.find('#Inputfield_status_1024').is(':checked'));
+                            $('input[id=unpublishedStatus_' + pid + ']').prop('checked', $icontents.find('#Inputfield_status_2048').is(':checked'));
                             //if the user clicks the Publish button rather than unchecking the "Unpublished" checkbox
-                            if(text == 'Publish') $('input[id=unpublishedStatus_'+pid+']').prop('checked', false);
+                            if (text == 'Publish') $('input[id=unpublishedStatus_' + pid + ']').prop('checked', false);
                         }, 500);
                         closeOnSave = true; // only let closeOnSave happen once
                     }
@@ -70,11 +77,11 @@ function batchChildTableDialog() {
             };
 
             // don't hide "Move to Trash" button
-            if(text == 'Move to Trash') {
-                $button.on("click", function(){
+            if (text == 'Move to Trash') {
+                $button.on("click", function () {
                     //delete page from table row if page deleted in modal
-                    if($icontents.find('input[id=delete_page][value='+pid+']').is(':checked')) {
-                        $('tr.pid_'+pid).remove();
+                    if ($icontents.find('input[id=delete_page][value=' + pid + ']').is(':checked')) {
+                        $('tr.pid_' + pid).remove();
                     }
                     $iframe.dialog('close');
                 });
@@ -95,28 +102,51 @@ function batchChildTableDialog() {
 
 
 function batchChildTableSortable($table) {
-    if(!$table.is("tbody")) $table = $table.find("tbody");
+    if (!$table.is("tbody")) $table = $table.find("tbody");
     $table.sortable({
         axis: 'y',
         handle: '.InputfieldChildTableRowSortHandle'
     });
 }
 
-$(document).ready(function() {
+$(document).ready(function () {
+
+    $(document).one('mouseover', '.batchChildTableContainer > table', function () {
+
+        $('.batchChildTableContainer > table > tbody > tr').each(function () {
+
+            var row = $(this),
+                bcePageNameCell = $(this).find('.bcePageName[data-langinfo]');
+
+            if (!bcePageNameCell.length) return false;
+
+            var cellCount = $(this).find('td').length - 1,
+                multilangPageInfo = bcePageNameCell.attr('data-langinfo');
+
+            row.after('<tr class="bceLangInfoRow"><td></td><td colspan="' + cellCount + '"><div>' + multilangPageInfo + '</div></td></tr>');
+            bcePageNameCell.parent('span').css('white-space', 'nowrap')
+                .prepend('<i class="bceTogglePageInfo fa fa-plus-square-o">');
+        });
+
+        $('.bceTogglePageInfo').on('click', function () {
+            $('.pageinfo-visible').not($(this).parents('.pageinfo-visible').first()).removeClass('pageinfo-visible');
+            $(this).parents('tr').first().toggleClass('pageinfo-visible');
+        })
+    });
 
     //csv export
     //$('.Inputfield_iframe').hide();
-    $(document).on('click', '.children_export_csv', function(){
-        $('#download').attr('src', config.urls.admin+
-            "setup/children-csv-export/?pid="+
-            $(this).attr('data-pageid')+
-            "&fns="+($("#Inputfield_userExportFields").val() ? $("#Inputfield_userExportFields").val() : $("#Inputfield_exportFields").val())+
-            "&cs="+$("#Inputfield_export_column_separator").val()+
-            "&ce="+$("#Inputfield_export_column_enclosure").val()+
-            "&ext="+$("#Inputfield_export_extension").val()+
-            "&nfr="+($("#Inputfield_export_names_first_row").is(':checkbox') ? $("#Inputfield_export_names_first_row").attr('checked') : $("#Inputfield_export_names_first_row").val())+
-            "&mvs="+$("#Inputfield_export_multiple_values_separator").val()+
-            "&fe="+($("#Inputfield_format_export").is(':checkbox') ? $("#Inputfield_format_export").attr('checked') : $("#Inputfield_format_export").val())
+    $(document).on('click', '.children_export_csv', function () {
+        $('#download').attr('src', config.urls.admin +
+            "setup/children-csv-export/?pid=" +
+            $(this).attr('data-pageid') +
+            "&fns=" + ($("#Inputfield_userExportFields").val() ? $("#Inputfield_userExportFields").val() : $("#Inputfield_exportFields").val()) +
+            "&cs=" + $("#Inputfield_export_column_separator").val() +
+            "&ce=" + $("#Inputfield_export_column_enclosure").val() +
+            "&ext=" + $("#Inputfield_export_extension").val() +
+            "&nfr=" + ($("#Inputfield_export_names_first_row").is(':checkbox') ? $("#Inputfield_export_names_first_row").attr('checked') : $("#Inputfield_export_names_first_row").val()) +
+            "&mvs=" + $("#Inputfield_export_multiple_values_separator").val() +
+            "&fe=" + ($("#Inputfield_format_export").is(':checkbox') ? $("#Inputfield_format_export").attr('checked') : $("#Inputfield_format_export").val())
         );
         return false;
     });
@@ -131,7 +161,7 @@ $(document).ready(function() {
 
     var bce_adminDataTableSelector = '.batchChildTableContainer .AdminDataTable',
         bce_columnControlClass = 'bce-column-toggle',
-        bce_allowedColumnControls = ['input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
+        bce_allowedColumnControls = ['input.langActiveStatus', 'input.hiddenStatus', 'input.unpublishedStatus', 'i.InputfieldChildTableRowDeleteLink'],
         bce_toggleControl = '<input type="checkbox" class="' + bce_columnControlClass + '" style="position: relative; top: 2px; margin-right: 4px;" />',
         bce_controlEventType = 'change',
         bce_fieldID = 'ProcessPageEditChildren',
@@ -183,7 +213,7 @@ $(document).ready(function() {
     function addBceColumnControls() {
 
         //this timeout is a bit of a hack that should be improved in the future
-        setTimeout(function(){
+        setTimeout(function () {
 
             if (bce_isColumnControlsAdded) {
                 return false;
@@ -283,40 +313,55 @@ $(document).ready(function() {
 
     $(document).on('click', '.batchChildTableEdit', batchChildTableDialog);
 
-    var i=0;
-    $(document).on('click', 'button.InputfieldChildTableAddRow', function() {
+    var i = 0;
+    var c = 0;
+    $(document).on('click', 'button.InputfieldChildTableAddRow', function () {
         i++;
+        c++;
         var $table = $(this).closest('.Inputfield').find('table');
         var $tbody = $table.find('tbody');
         var numRows = $tbody.children('tr').size();
         var $row = $tbody.children(":first").clone(true);
+        var $titleCell = $row.find("td:eq(" + (c++) + ")").find(':input');
+        $titleCell.attr('placeholder', ''); // empty the title placeholder text
+        $row.find("td:eq(" + (c++) + ")").html(''); //empty the name cell
 
-        $row.find("td:eq(2)").html(''); //empty the name cell
-        $row.find("td:eq(3)").html($('#defaultTemplates').html()); //set template data
-        $row.find("td:eq(4)").find(':checkbox').prop('checked', false); //uncheck hidden checkbox
-        $row.find("td:eq(5)").find(':checkbox').prop('checked', false); //uncheck unpublished checkbox
-        $row.find("td:eq(6)").html(''); //empty the view button cell
-        $row.find("td:eq(7)").html(''); //empty the edit button cell
-        $row.find("td:eq(8)").html(''); //empty the delete button cell
+        var colCount = 0;
+        $row.find("td").each(function () {
+            colCount++;
+        });
+        if (colCount == 10) {
+            $row.find("td:eq(" + (c++) + ")").find(':checkbox').prop('checked', false); //uncheck active checkbox
+        }
+
+        $row.find("td:eq(" + (c++) + ")").html($('#defaultTemplates').html()); //set template data
+        $row.find("td:eq(" + (c++) + ")").find(':checkbox').prop('checked', false); //uncheck hidden checkbox
+        $row.find("td:eq(" + (c++) + ")").find(':checkbox').prop('checked', false); //uncheck unpublished checkbox
+        $row.find("td:eq(" + (c++) + ")").html(''); //empty the view button cell
+        $row.find("td:eq(" + (c++) + ")").html(''); //empty the edit button cell
+        $row.find("td:eq(" + (c++) + ")").html(''); //empty the delete button cell
 
         //in case the first row was set for deletion - the new row, cloned from this, would also be set for deletion, so need to remove class and restore opacity
         $row.removeClass('InputfieldChildTableRowDeleted');
         $row.css('opacity', 1.0);
 
-        $row.find(":input").each(function() {
+        $row.find(":input").each(function () {
             var $input = $(this);
-            if($($input).is("select")) {
-                $input.attr("name", "templateId[new_"+i+"]");
+            if ($($input).is("select")) {
+                $input.attr("name", "templateId[new_" + i + "]");
             }
-            else if($($input).hasClass('hiddenStatus')) {
-                $input.attr("name", "hiddenStatus[new_"+i+"]");
+            else if ($($input).hasClass('langActiveStatus')) {
+                $input.attr("name", "langActiveStatus[new_" + i + "]");
             }
-            else if($($input).hasClass('unpublishedStatus')) {
-                $input.attr("name", "unpublishedStatus[new_"+i+"]");
+            else if ($($input).hasClass('hiddenStatus')) {
+                $input.attr("name", "hiddenStatus[new_" + i + "]");
             }
-            else if($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
+            else if ($($input).hasClass('unpublishedStatus')) {
+                $input.attr("name", "unpublishedStatus[new_" + i + "]");
+            }
+            else if ($input.is('.InputfieldChildTableRowSort')) $input.val(numRows);
             else {
-                $input.attr("name", "individualChildTitles[new_"+i+"]");
+                $input.attr("name", "individualChildTitles[new_" + i + "]");
                 $input.attr('value', '');
                 $input.attr('id', '');
             }
@@ -324,24 +369,24 @@ $(document).ready(function() {
 
         $tbody.append($row);
         $table.show();
-        $row.find(":input[id=]").focus();
+        $titleCell.focus();
         return false;
     });
 
     // make rows sortable - trigger this on first ("one") mouseover of a sort handle in case BCE fieldset is being opened via AJAX
-    $(document).one('mouseover', '.InputfieldChildTableRowSortHandle', function() {
-        $("table.AdminDataTable").each(function() {
+    $(document).one('mouseover', '.InputfieldChildTableRowSortHandle', function () {
+        $("table.AdminDataTable").each(function () {
             batchChildTableSortable($(this));
         });
     });
 
     // row deletion
     var deleteIds;
-    $(document).on('click bce-delete-row', '.InputfieldChildTableRowDeleteLink', function() {
+    $(document).on('click bce-delete-row', '.InputfieldChildTableRowDeleteLink', function () {
         var $row = $(this).closest('tr');
         var $input = $('.InputfieldChildTableRowDelete');
 
-        if($row.is('.InputfieldChildTableRowDeleted')) {
+        if ($row.is('.InputfieldChildTableRowDeleted')) {
             // undelete
             $row.removeClass('InputfieldChildTableRowDeleted');
             $row.css('opacity', 1.0);
@@ -360,19 +405,19 @@ $(document).ready(function() {
     });
 
     //Add or remove "Title" label from Text/Paste CSV textarea if user changes ignore first row setting
-    $(document).on('change', '#Inputfield_userIgnoreFirstRow', function() {
+    $(document).on('change', '#Inputfield_userIgnoreFirstRow', function () {
         var initialAddText = $('textarea[name=childPagesAdd]').val();
         var initialUpdateText = $('textarea[name=childPagesUpdate]').val();
         var initialReplaceText = $('textarea[name=childPagesReplace]').val();
-        if($(this).is(':checked')){
-            if($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val("Title\n" + initialAddText);
-            if($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val("Title\n" + initialUpdateText);
-            if($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val("Title\n" + initialReplaceText);
+        if ($(this).is(':checked')) {
+            if ($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val("Title\n" + initialAddText);
+            if ($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val("Title\n" + initialUpdateText);
+            if ($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val("Title\n" + initialReplaceText);
         }
         else {
-            if($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val(removeFirstLine(initialAddText));
-            if($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val(removeFirstLine(initialUpdateText));
-            if($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val(removeFirstLine(initialReplaceText));
+            if ($('textarea[name=childPagesAdd]').length) $('textarea[name=childPagesAdd]').val(removeFirstLine(initialAddText));
+            if ($('textarea[name=childPagesUpdate]').length) $('textarea[name=childPagesUpdate]').val(removeFirstLine(initialUpdateText));
+            if ($('textarea[name=childPagesReplace]').length) $('textarea[name=childPagesReplace]').val(removeFirstLine(initialReplaceText));
         }
     });
 
@@ -382,7 +427,7 @@ function removeFirstLine(text) {
     // break the textblock into an array of lines
     var lines = text.split('\n');
     // remove one line, starting at the first position
-    lines.splice(0,1);
+    lines.splice(0, 1);
     // join the array back into a single string
     return lines.join('\n');
 }
