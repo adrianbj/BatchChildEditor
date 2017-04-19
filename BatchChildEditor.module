@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.6.4',
+            'version' => '1.6.5',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -362,8 +362,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         if($currentData['position'] == 'top') $form->prepend($childEditSet);
         elseif ($currentData['position'] == 'replace') {
+
+            if($this->wire('languages')) {
+                $childrenLabel = $pp->template->getTabLabel('children', $this->wire('user')->language);
+            }
+            else {
+                $childrenLabel = $pp->template->tabChildren;
+            }
+            $childrenLabel = $childrenLabel ?: 'Children / Subpages';
+
             foreach($form as $field) {
-                if($field->label == 'Children / Subpages') $form->remove($field);
+                if($field->label == $childrenLabel) $form->remove($field);
             }
             $form->prepend($childEditSet);
         }
