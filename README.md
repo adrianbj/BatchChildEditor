@@ -60,7 +60,7 @@ There are module-wide config settings, but these can be overwritten with page sp
 * Position interface (top, bottom, replace, new tab, inline fieldset).
 * Custom Title, Description, and Notes for each mode - allows you to tailor the editing interface specifically to your content editors and to specific content.
 
-####Support forum:
+#### Support forum:
 https://processwire.com/talk/topic/6102-batch-child-editor/
 
 
