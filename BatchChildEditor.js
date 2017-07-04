@@ -296,12 +296,11 @@ $(document).ready(function () {
     $(document).on('click', '.batchChildTableEdit', batchChildTableDialog);
 
     var i = 0;
-    var c = 0;
     $(document).on('click', 'button.InputfieldChildTableAddRow', function () {
+        var c = 1;
         i++;
-        c++;
-        var $table = $(this).closest('.Inputfield').find('table');
-        var $tbody = $table.find('tbody');
+        var $table = $(this).closest('.Inputfield').find('table.bceEditTable');
+        var $tbody = $table.find('tbody:first');
         var numRows = $tbody.children('tr').size();
         var $row = $tbody.children(":first").clone(true);
         var $titleCell = $row.find("td:eq(" + (c++) + ")").find(':input');

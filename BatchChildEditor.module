@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.6.6',
+            'version' => '1.6.7',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -748,6 +748,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $table->headerRow($headerRow);
             $table->setSortable(false);
             $table->setEncodeEntities(false);
+            $table->addClass('bceEditTable');
 
             //Build the table
             $allTemplateIds = array();
@@ -1452,7 +1453,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         //check for subfields (eg textareas pro field) with a period (.) separator
                         if (strpos($convertedFieldPairings[$i+1],'.')) {
                             $fieldParts = explode('.', $convertedFieldPairings[$i+1]);
-                            $np->$fieldParts[0]->$fieldParts[1] = $childFieldValue;
+                            $np->{$fieldParts[0]}->{$fieldParts[1]} = $childFieldValue;
                             if($np->isChanged($fieldParts[0])) {
                                 $np->of(false);
                                 $np->save($fieldParts[0]);
@@ -1809,7 +1810,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $usersPageIDs = $this->wire('config')->usersPageIDs;
         $userTemplateIDs = $this->wire('config')->userTemplateIDs;
 
-        if($parent->is(Page::statusUnpublished)) {
+        // Doing the temporary unpublish was resulting in the published timestamp being updated every time
+        // a page is saved. So replace with a one off check for now, because I don't think it's needed in this scenario.
+        // Hopefully no no-effects.
+        $parentEditable = $parent->editable();
+        /*
+        if($parent->hasStatus(Page::statusUnpublished)) {
             $parentEditable = $parent->editable();
         } else {
             // temporarily put the parent in an unpublished status so that we can check it from
@@ -1822,6 +1828,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $parent->removeStatus(Page::statusUnpublished);
             $parent->setTrackChanges(true);
         }
+        */
 
         foreach($allTemplates as $t) {
 
