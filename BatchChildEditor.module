@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.6.7',
+            'version' => '1.6.8',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -811,7 +811,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $langid = $userLang->isDefaultLanguage ? '' : $userLang->id;
                     $langInfo = ' data-langinfo="<table class=\'bceLanguages\'><tr><th>Language</th><th>Title</th><th>Name</th><th>Active</th></tr>';
                     foreach($this->wire('languages') as $lang) {
-                        $langInfo .= '<tr><td>' . $lang->title . '</td><td>' . $this->getLanguageVersion($cp, 'title', $lang) . '</td><td>' . $this->getLanguageVersion($cp, 'name', $lang) . '</td><td>' . ($lang->isDefaultLanguage ? 'default' : ($cp->get("status{$lang->id}") ? "&#10004;" : "&#x2718;")) . '</td></tr>';
+                        $langInfo .= '<tr><td>' . htmlspecialchars($lang->title, ENT_QUOTES, "UTF-8") . '</td><td>' . htmlspecialchars($this->getLanguageVersion($cp, 'title', $lang), ENT_QUOTES, "UTF-8") . '</td><td>' . $this->getLanguageVersion($cp, 'name', $lang) . '</td><td>' . ($lang->isDefaultLanguage ? 'default' : ($cp->get("status{$lang->id}") ? "&#10004;" : "&#x2718;")) . '</td></tr>';
                     }
                     $langInfo .= '</table>" ';
                 }
