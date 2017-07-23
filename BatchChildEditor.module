@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.6.8',
+            'version' => '1.6.9',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1445,7 +1445,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             //creating pages and populating fields
             foreach($row as $childFieldValue) {
-                $childFieldValue = trim($this->wire('sanitizer')->purify($childFieldValue));
+                $childFieldValue = trim($childFieldValue);
                 //if fieldPairings is defined now populate the rest of the fields
                 if($currentData['fieldPairings'] != '') {
                     //populate new page with rest of the field values
@@ -1461,6 +1461,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         }
                         else {
                             $f = $this->wire('fields')->get($convertedFieldPairings[$i+1]);
+                            if($f->usePurifier) $childFieldValue = $this->wire('sanitizer')->purify($childFieldValue);
                             if($f->type instanceof FieldtypePage) {
                                 $this->updatePageFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue);
                             }
@@ -1522,6 +1523,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     //populate new page with rest of the field values
                     else {
                         $f = $this->wire('fields')->get($fieldsArray[$i]);
+                        if($f->usePurifier) $childFieldValue = $this->wire('sanitizer')->purify($childFieldValue);
                         if($f->type instanceof FieldtypePage) {
                             $this->updatePageFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue);
                         }
@@ -1812,7 +1814,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         // Doing the temporary unpublish was resulting in the published timestamp being updated every time
         // a page is saved. So replace with a one off check for now, because I don't think it's needed in this scenario.
-        // Hopefully no no-effects.
+        // Hopefully no side-effects.
         $parentEditable = $parent->editable();
         /*
         if($parent->hasStatus(Page::statusUnpublished)) {
