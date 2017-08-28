@@ -141,6 +141,7 @@ $(document).ready(function () {
         $('#download').attr('src', config.urls.admin +
             "setup/children-csv-export/?pid=" +
             $(this).attr('data-pageid') +
+            "&pti=" + ($("#Inputfield_pagesToInclude").val() ? $("#Inputfield_pagesToInclude").val() : $("#Inputfield_pagesToInclude").val()) +
             "&fns=" + ($("#Inputfield_userExportFields").val() ? $("#Inputfield_userExportFields").val() : $("#Inputfield_exportFields").val()) +
             "&cs=" + $("#Inputfield_export_column_separator").val() +
             "&ce=" + $("#Inputfield_export_column_enclosure").val() +

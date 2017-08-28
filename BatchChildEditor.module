@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.6.10',
+            'version' => '1.6.11',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -87,6 +87,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "csvImportFieldSeparator" => ",",
                 "csvImportFieldEnclosure" => '"',
                 "ignoreFirstRow" => "",
+                "pagesToInclude" => "",
                 "exportFields" => "",
                 "csvExportFieldSeparator" => ",",
                 "csvExportFieldEnclosure" => '"',
@@ -936,7 +937,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->add($exportFieldset);
 
             $allFields = array();
-            foreach($pp->children as $child) {
+            foreach($pp->children("include=all") as $child) {
                 foreach($child->fields as $cf) {
                     if(!in_array($cf, $allFields)) $allFields[] = $cf;
                 }
@@ -945,6 +946,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if($currentData['allowOverrideCsvExportSettings']) {
 
                 if(isset($this->data['pageSettings'][$settingsPage->id])) {
+
+                    $f = $this->wire('modules')->get("InputfieldSelect");
+                    $f->attr('name', 'pagesToInclude');
+                    $f->label = __('Pages to Include');
+                    $f->addOption("", __(""));
+                    $f->addOption("hidden", __("Hidden"));
+                    $f->addOption("hidden", __("Hidden"));
+                    $f->addOption("all", __("All"));
+                    $f->value = $currentData['pagesToInclude'];
+                    $exportFieldset->add($f);
+
                     $f = $this->wire('modules')->get("InputfieldAsmSelect");
                     $f->name = "userExportFields";
                     $f->showIf = "edit_mode=export";
@@ -977,7 +989,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         if(!in_array($systemField, $populatedFields)) $f->addOption($systemField, $systemFieldLabel);
                     }
                     $allFields = array();
-                    foreach($pp->children as $child) {
+                    foreach($pp->children("include=all") as $child) {
                         foreach($child->fields as $cf) {
                             if(!in_array($cf, $allFields)) $allFields[] = $cf;
                         }
@@ -2330,6 +2342,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //only for page context settings, NOT module config settings
         if($this->wire('input')->get->id) {
+
+            $f = $this->wire('modules')->get("InputfieldSelect");
+            $f->attr('name', 'pagesToInclude');
+            $f->label = __('Pages to Include');
+            $f->addOption("", __(""));
+            $f->addOption("hidden", __("Hidden"));
+            $f->addOption("hidden", __("Hidden"));
+            $f->addOption("all", __("All"));
+            $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['pagesToInclude'] : $data['pagesToInclude'];
+            $fieldset->add($f);
+
             $f = $this->wire('modules')->get("InputfieldAsmSelect");
             $f->name = "exportFields";
             $f->showIf = "editModes=export";
@@ -2342,7 +2365,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
             $allFields = array();
             $pp = isset($data['pageSettings'][$pid]['parentPage']) ? $this->wire('pages')->get($data['pageSettings'][$pid]['parentPage']) : $this->wire('pages')->get((int)$this->wire('input')->get->id);
-            foreach($pp->children as $child) {
+            foreach($pp->children("include=all") as $child) {
                 foreach($child->fields as $cf) {
                     if(!in_array($cf, $allFields)) $allFields[] = $cf;
                 }

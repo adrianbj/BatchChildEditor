@@ -87,8 +87,8 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $exportMultipleValuesSeparator = !is_null($event) ? $event->arguments(4) : wire('input')->get->mvs;
         $formatExport = !is_null($event) ? $event->arguments(5) : wire('input')->get->fe;
         $formatExport = $formatExport == 'checked' || $formatExport == 1 ? true : false;
-        $fieldNames = !is_null($event) ? $event->arguments(6) : explode(',', wire('input')->get->fns);
-
+        $pagesToInclude = !is_null($event) ? $event->arguments(6) : wire('input')->get->pti;
+        $fieldNames = !is_null($event) ? $event->arguments(7) : explode(',', wire('input')->get->fns);
 
         //if settings not supplied, use defaults from page or module config settings
         $currentData = in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
@@ -103,6 +103,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
         if($exportMultipleValuesSeparator == '\r') $exportMultipleValuesSeparator = chr(13);
         if($exportMultipleValuesSeparator == '\n') $exportMultipleValuesSeparator = chr(10);
         $formatExport = isset($formatExport) ? $formatExport : $currentData['formatExport'];
+        $pagesToInclude = $pagesToInclude ? $pagesToInclude : $currentData['pagesToInclude'];
         $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
         if($fieldNames[0] == 'undefined') {
             $fieldNames = array();
@@ -111,7 +112,8 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
         $csv = array();
         $i=0;
-        foreach($pp->children as $p){
+        $children = $pagesToInclude != '' ? $pp->children("include=$pagesToInclude") : $pp->children();
+        foreach($children as $p){
 
             $p->of($formatExport); //needed to have fields formatted in the CSV
 
