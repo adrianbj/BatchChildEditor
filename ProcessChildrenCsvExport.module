@@ -112,7 +112,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
         $csv = array();
         $i=0;
-        $children = $pagesToInclude != '' ? $pp->children("include=$pagesToInclude") : $pp->children();
+        $children = $pagesToInclude != '' ? $pp->children($pagesToInclude) : $pp->children();
         foreach($children as $p){
 
             $p->of($formatExport); //needed to have fields formatted in the CSV

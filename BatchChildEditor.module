@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.6.12',
+            'version' => '1.6.13',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -947,14 +947,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
                 if(isset($this->data['pageSettings'][$settingsPage->id])) {
 
-                    $f = $this->wire('modules')->get("InputfieldSelect");
+                    $f = $this->wire('modules')->get("InputfieldSelector");
                     $f->attr('name', 'pagesToInclude');
                     $f->label = __('Pages to Include');
-                    $f->addOption("", __(""));
-                    $f->addOption("hidden", __("Hidden"));
-                    $f->addOption("hidden", __("Hidden"));
-                    $f->addOption("all", __("All"));
+                    $f->description = __('Leave blank to automatically select all child pages&nbsp;(not hidden and published)');
+                    $f->initValue = "parent={$pp->id}";
                     $f->value = $currentData['pagesToInclude'];
+                    $f->collapsed = Inputfield::collapsedBlank;
                     $exportFieldset->add($f);
 
                     $f = $this->wire('modules')->get("InputfieldAsmSelect");
@@ -2344,14 +2343,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //only for page context settings, NOT module config settings
         if($this->wire('input')->get->id) {
 
-            $f = $this->wire('modules')->get("InputfieldSelect");
+            $f = $this->wire('modules')->get("InputfieldSelector");
             $f->attr('name', 'pagesToInclude');
             $f->label = __('Pages to Include');
-            $f->addOption("", __(""));
-            $f->addOption("hidden", __("Hidden"));
-            $f->addOption("hidden", __("Hidden"));
-            $f->addOption("all", __("All"));
+            $f->description = __('Leave blank to automatically select all child pages&nbsp;(not hidden and published)');
+            $f->initValue = "parent={$pid}";
             $f->value = $pid && isset($data['pageSettings'][$pid]) ? $data['pageSettings'][$pid]['pagesToInclude'] : $data['pagesToInclude'];
+            $f->collapsed = Inputfield::collapsedBlank;
             $fieldset->add($f);
 
             $f = $this->wire('modules')->get("InputfieldAsmSelect");
