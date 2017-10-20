@@ -108,3 +108,11 @@ table#bceLanguages td, table#bceLanguages th {
 .batchChildTableContainer > table > tbody > tr > td:first-child {
     text-align: center;
 }
+
+.bcePageNameContainer {
+    width:100%;
+    max-width:200px;
+    text-overflow:ellipsis;
+    overflow:hidden;
+    display:inline-block;
+}
