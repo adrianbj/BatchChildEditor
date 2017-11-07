@@ -26,7 +26,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => 139,
+            'version' => '1.7.0',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -98,31 +98,40 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $delimiter = $delimiter ? $delimiter : $currentData['csvExportFieldSeparator'];
         $enclosure = $enclosure ? $enclosure : $currentData['csvExportFieldEnclosure'];
         $extension = $extension ? $extension : $currentData['csvExportExtension'];
-        $namesFirstRow = $namesFirstRow ? $namesFirstRow : $currentData['columnsFirstRow'];
+        $namesFirstRow = isset($namesFirstRow) ? $namesFirstRow : $currentData['columnsFirstRow'];
         $exportMultipleValuesSeparator = $exportMultipleValuesSeparator ? $exportMultipleValuesSeparator : $currentData['exportMultipleValuesSeparator'];
         if($exportMultipleValuesSeparator == '\r') $exportMultipleValuesSeparator = chr(13);
         if($exportMultipleValuesSeparator == '\n') $exportMultipleValuesSeparator = chr(10);
         $formatExport = isset($formatExport) ? $formatExport : $currentData['formatExport'];
         $pagesToInclude = $pagesToInclude ? $pagesToInclude : $currentData['pagesToInclude'];
         $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
+
         if($fieldNames[0] == 'undefined') {
             $fieldNames = array();
-            foreach ($pp->fields as $f) $fieldNames[] = $f->name;
+            // if fields not defined, then get list from first child
+            foreach ($pp->child()->fields as $f) $fieldNames[] = $f->name;
         }
 
         $csv = array();
         $i=0;
-        $children = $pagesToInclude != '' ? $pp->children($pagesToInclude) : $pp->children();
-        foreach($children as $p){
+        $children = $pagesToInclude != '' && $pagesToInclude != 'undefined' ? $pp->children($pagesToInclude) : $pp->children();
+        foreach($children as $p) {
 
             $p->of($formatExport); //needed to have fields formatted in the CSV
 
             //Names in First Row
-            if($i==0 && $namesFirstRow == true){
-                foreach($fieldNames as $fieldName){
+            if($i==0 && $namesFirstRow == true) {
+                foreach($fieldNames as $fieldName) {
 
                     //exclude unsupported field types
-                    if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' || wire('fields')->$fieldName->type == 'FieldtypeRepeater' || wire('fields')->$fieldName->type == 'FieldtypePageTable')) continue;
+                    if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' ||
+                        wire('fields')->$fieldName->type == 'FieldtypeRepeater' ||
+                        wire('fields')->$fieldName->type == 'FieldtypePageTable' ||
+                        wire('fields')->$fieldName->type == 'FieldsetOpen' ||
+                        wire('fields')->$fieldName->type == 'FieldsetClose' ||
+                        wire('fields')->$fieldName->type == 'FieldsetTabOpen' ||
+                        wire('fields')->$fieldName->type == 'FieldsetTabClose'
+                    )) continue;
 
                     //FieldtypeTextareas
                     if(wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeTextareas') {
@@ -132,6 +141,17 @@ class ProcessChildrenCsvExport extends Process implements Module {
                             $csv[$i][] = $field->type->getLabel($field, $subFieldName) ? $field->type->getLabel($field, $subFieldName) : $subFieldName;
                         }
                     }
+                    /*
+                    //Repeaters
+                    elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeRepeater') {
+                        $field = wire('fields')->get($fieldName);
+                        $subfields = $field->repeaterFields;
+                        foreach($subfields as $sf) {
+                            $subField = wire('fields')->get($sf);
+                            $csv[$i][] = $subField->label ? $subField->label : $subField->name;
+                        }
+                    }
+                    */
                     //All other fieldtypes
                     elseif(isset($fieldName) && $fieldName !== 'undefined') {
                         if(array_key_exists($fieldName, $systemFields)) {
@@ -148,7 +168,9 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
             //All Data Rows
             $i++;
-            foreach($fieldNames as $fieldName){
+            foreach($fieldNames as $fieldName) {
+
+                $formattedValue = '';
 
                 //exclude unsupported field types
                 if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' ||
@@ -171,6 +193,16 @@ class ProcessChildrenCsvExport extends Process implements Module {
                         $csv[$i][] = $p->$fieldName->$subFieldName;
                     }
                 }
+                /*
+                //FieldtypeRepeaters
+                elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type == 'FieldtypeRepeater') {
+                    foreach($p->$fieldName as $item) {
+                        foreach($item->fields as $subField) {
+                            $csv[$i][] = $item->$subField;
+                        }
+                    }
+                }
+                */
                 //Page fields
                 elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypePage) {
                     if(method_exists($p->$fieldName,'implode')) {
@@ -209,6 +241,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
                 }
 
             }
+
         }
 
         header("Content-type: text/csv");
