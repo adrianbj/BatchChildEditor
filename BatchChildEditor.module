@@ -519,8 +519,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode.count>0, edit_mode!=export, edit_mode!=edit, edit_mode!=lister";
             $f->label = __('Child Template');
             $f->columnWidth = 34;
-            $f->description = __('Choose the template for new/replaced children');
-            $f->notes = __('Note: This will not change the template for existing pages in Update mode.');
+            $f->description = __('Choose the template for children');
+            $f->notes = __('This will not change the template for existing pages (only for new children) in Update mode unless the "Update template for existing children" option is checked.');
             /*if(count($pp->template->childTemplates)==0) {
                 foreach($this->wire('templates') as $t) {
                     if(!($t->flags & Template::flagSystem)) $f->addOption($t->name);
@@ -538,6 +538,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
             if($pp->children("include=all")->count()>0 && $pp->children("include=all")->last()->id) $f->attr('value', $pp->children("include=all")->last()->template);
             $childEditSet->add($f);
+
+            $f = $this->wire('modules')->get("InputfieldCheckbox");
+            $f->name = "updateTemplateExistingChildren";
+            $f->description = __('This will change the template for existing children to match the one selected.');
+            $f->notes = __('This could destroy lots of content - use with caution!');
+            $f->showIf = "edit_mode.count>0, edit_mode!=edit, edit_mode=update, edit_mode!=lister";
+            $f->label = __('Update template for existing children');
+            $f->columnWidth = 33;
+            $f->attr('checked', $this->wire('session')->updateTemplateExistingChildren === 1 ? 'checked' : '');
+            $childEditSet->add($f);
+
         }
 
         if($this->currentData['allowOverrideOverwriteNames']) {
@@ -578,7 +589,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode.count>0, edit_mode!=edit, edit_mode!=export, edit_mode!=lister, languageToPopulate=default";
             $f->label = __('Populate field content to all languages');
             $f->description = __('Only check this if this if the default language is the first language you are importing.');
-            $f->columnWidth = 34;
+            $f->columnWidth = 33;
             $childEditSet->add($f);
         }
 
@@ -1204,7 +1215,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 return;
             }
 
-            //if content (textarea, URL or CSV upload) and the selected template hasn't changed, escape now to prevent unwanted deletion and recreation of pages
+            //if content (textarea, URL or CSV upload) and the selected template hasn't changed, escape now to prevent unwanted saving of pages
             if($childPagesUpdate == $this->childPages && $this->wire('input')->post->childTemplate == $pp->children("include=all")->last()->template) return;
 
             $this->createPages($childPagesUpdate, $pp, $childTemplate);
@@ -1467,6 +1478,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             continue;
                         }
                     }
+                    // page already exists, but update template if allowed / requested
+                    elseif($this->wire('input')->post->updateTemplateExistingChildren) {
+                        $np->template = $childTemplate;
+                        $np->save();
+                    }
                     if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
                         if($titleKey) $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($row[$titleKey-1], Sanitizer::translate)), $np, $newPage);
                     }
@@ -1508,12 +1524,17 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
                 // else field pairings not defined, so match all fields in order
                 else {
-                    //first item is the page title so create new page
+                    // first item is the page title so create new page
                     if($i==0) {
                         if($childFieldValue == '') continue;
-                        //update mode so re-title/re-name existing page
+                        // update mode so re-title/re-name existing page
                         if($this->wire('input')->post->edit_mode == "update") {
                             $np = $pp->children("include=all")->eq($x-1);
+                            // update template if allowed / requested
+                            if($np && $np->id && $this->wire('input')->post->updateTemplateExistingChildren) {
+                                $np->template = $childTemplate;
+                                $np->save();
+                            }
                             if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
                                 if($np && $np->id) {
                                     $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($childFieldValue, Sanitizer::translate)), $np, $newPage);
