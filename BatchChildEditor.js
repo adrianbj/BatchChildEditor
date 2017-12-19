@@ -112,9 +112,9 @@ function batchChildTableSortable($table) {
 
 $(document).ready(function () {
 
-    $(document).one('mouseover', '.batchChildTableContainer > table', function () {
+    $(document).one('mouseover', '.batchChildTableContainer table', function () {
 
-        $('.batchChildTableContainer > table > tbody > tr').each(function () {
+        $('.batchChildTableContainer table > tbody > tr').each(function () {
 
             var row = $(this),
                 bcePageNameCell = $(this).find('.bcePageName[data-langinfo]');

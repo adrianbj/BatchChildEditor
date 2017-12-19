@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.7.0',
+            'version' => '1.8.1',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -38,6 +38,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      *
      */
     protected $data = array();
+    protected $currentData;
     protected $childPages = '';
     protected $predefinedTemplates = array();
     protected $predefinedParents = array();
@@ -131,6 +132,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 "exportModeDescription" => "Creates a CSV file with one row for each child page.",
                 "exportModeNotes" => "",
                 "pageSettings" => array(),
+                "languageToPopulate" => "",
+                "populateToAllLanguages" => ""
             );
     }
 
@@ -174,7 +177,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if(!$id) return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$id]) && $this->data['pageSettings'][$id] ? $this->data['pageSettings'][$id] : $this->data;
+        $this->currentData = in_array($id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$id]) && $this->data['pageSettings'][$id] ? $this->data['pageSettings'][$id] : $this->data;
 
         // GET parameter id tells the page that's being edited
         $this->editedPage = $this->wire('pages')->get($id);
@@ -186,7 +189,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if(!$this->data['allowAdminPages'] && ($this->editedPage->template->flags & Template::flagSystem)) return;
 
         //if checked, remove the main Children tab
-        if($currentData['removeChildrenTab']) $this->addHookAfter('ProcessPageEdit::buildForm', $this, "removeChildrenTab");
+        if($this->currentData['removeChildrenTab']) $this->addHookAfter('ProcessPageEdit::buildForm', $this, "removeChildrenTab");
 
         // if any templates or pages have been selected, then only hook if the template of the edited page has been chosen or the page has been chosen
         //if(count($this->data['enabledTemplates']) === 0 && count($this->data['enabledPages']) === 0) return;
@@ -200,13 +203,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
 
         //Make sure at least one edit mode has been selected in the config
-        if(count($currentData['editModes']) == 0) return;
+        if(count($this->currentData['editModes']) == 0) return;
 
-        if($currentData['position'] == 'inlineFieldset') {
+        if($this->currentData['position'] == 'inlineFieldset') {
             $this->addHookAfter('ProcessPageEdit::buildFormContent', $this, 'addInlineFieldset');
         }
         //if position is "new tab" we also need to check that the template family settings allow the page to have children
-        elseif($currentData['position'] == 'newTab' && !$this->editedPage->template->noChildren) {
+        elseif($this->currentData['position'] == 'newTab' && !$this->editedPage->template->noChildren) {
             $this->addHookAfter('ProcessPageEdit::buildFormContent', $this, 'addNewTab');
         }
         else {
@@ -339,12 +342,12 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $this->currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
-        if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = $this->wire('pages')->get($currentData['parentPage']);
+        if(isset($this->currentData['parentPage']) && $this->currentData['parentPage']) $pp = $this->wire('pages')->get($this->currentData['parentPage']);
 
         $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
-        if($currentData['insertAfterField']) $fn = (string) $this->wire('fields')->get($currentData['insertAfterField'])->name;
+        if($this->currentData['insertAfterField']) $fn = (string) $this->wire('fields')->get($this->currentData['insertAfterField'])->name;
         if(isset($fn) && $form->get($fn)) {
             $form->insertAfter($childEditSet,  $form->get($fn));
         }
@@ -360,14 +363,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $this->currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
-        if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = $this->wire('pages')->get($currentData['parentPage']);
+        if(isset($this->currentData['parentPage']) && $this->currentData['parentPage']) $pp = $this->wire('pages')->get($this->currentData['parentPage']);
 
         $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
 
-        if($currentData['position'] == 'top') $form->prepend($childEditSet);
-        elseif ($currentData['position'] == 'replace') {
+        if($this->currentData['position'] == 'top') $form->prepend($childEditSet);
+        elseif ($this->currentData['position'] == 'replace') {
 
             if($this->wire('languages')) {
                 $childrenLabel = $pp->template->getTabLabel('children', $this->wire('user')->language);
@@ -392,9 +395,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $form = $event->return;
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $this->currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
-        if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = $this->wire('pages')->get($currentData['parentPage']);
+        if(isset($this->currentData['parentPage']) && $this->currentData['parentPage']) $pp = $this->wire('pages')->get($this->currentData['parentPage']);
 
         //build the content of the tab
         $childEditSet = $this->createChildEditSet($pp, $event->object->getPage(), $form);
@@ -404,8 +407,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         /*
         // create the tab
         $newTab = new InputfieldWrapper();
-        $newTab->attr('id', $this->className() . $this->wire('sanitizer')->pageName($currentData['tabName'],true));
-        $newTab->attr('title', $currentData['tabName']);
+        $newTab->attr('id', $this->className() . $this->wire('sanitizer')->pageName($this->currentData['tabName'],true));
+        $newTab->attr('title', $this->currentData['tabName']);
         $newTab->prepend($childEditSet);
         $form->prepend($newTab); // this prepend is putting the childeditset before the save button, although I really want to change the order of the tab itself to just after Content
         */
@@ -417,9 +420,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         else {
             $field = new InputfieldFieldsetTabOpen;
         }
-        $field->name = $this->wire('sanitizer')->fieldName($currentData['tabName']);
-        if(!$this->wire('input')->get->s) $field->collapsed = $currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedNo;
-        $field->label = $currentData['tabName'];
+        $field->name = $this->wire('sanitizer')->fieldName($this->currentData['tabName']);
+        if(!$this->wire('input')->get->s) $field->collapsed = $this->currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedNo;
+        $field->label = $this->currentData['tabName'];
         $form->add($field);
 
         $form->add($childEditSet);
@@ -431,7 +434,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         else {
             $field = new InputfieldFieldsetClose;
         }
-        $field->name = $this->wire('sanitizer')->fieldName($currentData['tabName'])."_END";
+        $field->name = $this->wire('sanitizer')->fieldName($this->currentData['tabName'])."_END";
         $form->add($field);
     }
 
@@ -439,33 +442,33 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public function createChildEditSet($pp, $settingsPage, $form) {
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($settingsPage->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$settingsPage->id]) && $this->data['pageSettings'][$settingsPage->id] ? $this->data['pageSettings'][$settingsPage->id] : $this->data;
+        $this->currentData = in_array($settingsPage->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$settingsPage->id]) && $this->data['pageSettings'][$settingsPage->id] ? $this->data['pageSettings'][$settingsPage->id] : $this->data;
 
-        if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = $this->wire('pages')->get($currentData['parentPage']);
+        if(isset($this->currentData['parentPage']) && $this->currentData['parentPage']) $pp = $this->wire('pages')->get($this->currentData['parentPage']);
 
         //get user CSV setting overrides if allowed
-        if(isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings']) {
+        if(isset($this->currentData['allowOverrideCsvImportSettings']) && $this->currentData['allowOverrideCsvImportSettings']) {
 
-            $fieldSeparator = $currentData['csvImportFieldSeparator'];
-            $fieldEnclosure = $currentData['csvImportFieldEnclosure'];
-            $ignoreFirstRow = $currentData['ignoreFirstRow'];
+            $fieldSeparator = $this->currentData['csvImportFieldSeparator'];
+            $fieldEnclosure = $this->currentData['csvImportFieldEnclosure'];
+            $ignoreFirstRow = $this->currentData['ignoreFirstRow'];
 
-            if($this->wire('session')->userCsvImportFieldSeparator) $currentData['csvImportFieldSeparator'] = $this->wire('session')->userCsvImportFieldSeparator;
-            if($this->wire('session')->userCsvImportFieldEnclosure) $currentData['csvImportFieldEnclosure'] = $this->wire('session')->userCsvImportFieldEnclosure;
-            if($this->wire('session')->userIgnoreFirstRow) $currentData['ignoreFirstRow'] = $this->wire('session')->userIgnoreFirstRow;
+            if($this->wire('session')->userCsvImportFieldSeparator) $this->currentData['csvImportFieldSeparator'] = $this->wire('session')->userCsvImportFieldSeparator;
+            if($this->wire('session')->userCsvImportFieldEnclosure) $this->currentData['csvImportFieldEnclosure'] = $this->wire('session')->userCsvImportFieldEnclosure;
+            if($this->wire('session')->userIgnoreFirstRow) $this->currentData['ignoreFirstRow'] = $this->wire('session')->userIgnoreFirstRow;
         }
 
         foreach($pp->children("include=all") as $cp) {
             if(!$cp->is(Page::statusSystemID)) $this->childPages .= "{$cp->title}\r\n";
         }
         $this->childPages = rtrim($this->childPages, "\r\n");
-        if($currentData['ignoreFirstRow']) $this->childPages = "Title\r\n".$this->childPages;
+        if($this->currentData['ignoreFirstRow']) $this->childPages = "Title\r\n".$this->childPages;
 
         // create the fieldset
         $childEditSet = $this->wire('modules')->get("InputfieldFieldset");
         $childEditSet->attr('name', 'child_batch_editor');
-        if($currentData['position'] != 'newTab' && !$this->wire('input')->get->s) $childEditSet->collapsed = $currentData['loadOpen'] ? '' : ((defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) && $currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
-        $childEditSet->label = $currentData['position'] == 'newTab' ? ' ' : $currentData['tabName'];
+        if($this->currentData['position'] != 'newTab' && !$this->wire('input')->get->s) $childEditSet->collapsed = $this->currentData['loadOpen'] ? '' : ((defined('Inputfield::collapsedYesAjax') || defined('\ProcessWire\Inputfield::collapsedYesAjax')) && $this->currentData['openMethod'] == 'ajax' ? Inputfield::collapsedYesAjax : Inputfield::collapsedYes);
+        $childEditSet->label = $this->currentData['position'] == 'newTab' ? ' ' : $this->currentData['tabName'];
 
         if($this->wire('languages') && !$this->wire('user')->language->isDefaultLanguage) {
             $f = $this->wire('modules')->get("InputfieldMarkup");
@@ -473,7 +476,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->add($f);
         }
 
-        if(count($currentData['editModes'])>1) {
+        if(count($this->currentData['editModes'])>1) {
             $editModes = array(
                 'lister' => __('Lister'),
                 'edit' => __('Edit'),
@@ -485,9 +488,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f = $this->wire('modules')->get("InputfieldRadios");
             $f->attr('name', 'edit_mode');
             $f->label = __('Mode');
-            if(!$currentData['allowOverrideOverwriteNames'] && (is_array($pp->template->childTemplates) && count($pp->template->childTemplates)==1)) $f->optionColumns = 1;
+            if(!$this->currentData['allowOverrideOverwriteNames'] && (is_array($pp->template->childTemplates) && count($pp->template->childTemplates)==1)) $f->optionColumns = 1;
             $f->columnWidth = 33;
-            foreach($currentData['editModes'] as $editMode) {
+            foreach($this->currentData['editModes'] as $editMode) {
                 if($editMode == 'update' && $pp->children("include=all")->count == 0) continue;
                 //check users add rights for add and replace mode
                 if(($editMode == 'add' || $editMode == 'replace') && !$pp->addable()) continue;
@@ -498,14 +501,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->value = $this->wire('session')->edit_mode;
             }
             else {
-                if($currentData['defaultMode']) $f->value = $currentData['defaultMode'];
+                if($this->currentData['defaultMode']) $f->value = $this->currentData['defaultMode'];
             }
             $childEditSet->add($f);
         }
         else {
             $f = $this->wire('modules')->get("InputfieldHidden");
             $f->attr('name', 'edit_mode');
-            $f->value = $currentData['editModes'][0];
+            $f->value = $this->currentData['editModes'][0];
             $childEditSet->add($f);
         }
 
@@ -516,7 +519,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode.count>0, edit_mode!=export, edit_mode!=edit, edit_mode!=lister";
             $f->label = __('Child Template');
             $f->columnWidth = 34;
-            $f->description = __('Choose the template for new children');
+            $f->description = __('Choose the template for new/replaced children');
+            $f->notes = __('Note: This will not change the template for existing pages in Update mode.');
             /*if(count($pp->template->childTemplates)==0) {
                 foreach($this->wire('templates') as $t) {
                     if(!($t->flags & Template::flagSystem)) $f->addOption($t->name);
@@ -536,14 +540,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $childEditSet->add($f);
         }
 
-        if($currentData['allowOverrideOverwriteNames']) {
+        if($this->currentData['allowOverrideOverwriteNames']) {
             $f = $this->wire('modules')->get("InputfieldCheckbox");
             $f->attr('name', 'userOverwriteNames');
             $f->showIf = "edit_mode=edit|update";
             $f->label = __('Overwrite names');
             $f->columnWidth = 33;
             $f->description = __('Whether to overwrite the name of the page, and not just the title.');
-            $f->attr('checked', $currentData['overwriteNames'] ? 'checked' : '' );
+            $f->attr('checked', $this->currentData['overwriteNames'] ? 'checked' : '' );
             $f->notes = __("This option can cause problems if the affected child pages are part of the front end structure of the site. It may result in broken links, etc.");
             $childEditSet->add($f);
         }
@@ -554,19 +558,38 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->name = "activateOtherLanguages";
             $f->showIf = "edit_mode.count>0, edit_mode!=edit, edit_mode!=export, edit_mode!=lister";
             $f->label = __('Activate New Pages in Other Languages');
-            $f->columnWidth = 100;
+            $f->columnWidth = 33;
             $f->attr('checked', $this->wire('session')->activateOtherLanguages === 0 ? '' : 'checked');
+            $childEditSet->add($f);
+
+            $f = $this->wire('modules')->get("InputfieldSelect");
+            $f->name = "languageToPopulate";
+            $f->showIf = "edit_mode.count>0, edit_mode!=edit, edit_mode!=export, edit_mode!=lister";
+            $f->label = __('Choose the language to populate');
+            $f->required = true;
+            $f->columnWidth = 34;
+            foreach($this->wire('languages') as $lang) {
+                $f->addOption($lang->name);
+            }
+            $childEditSet->add($f);
+
+            $f = $this->wire('modules')->get("InputfieldCheckbox");
+            $f->name = "populateToAllLanguages";
+            $f->showIf = "edit_mode.count>0, edit_mode!=edit, edit_mode!=export, edit_mode!=lister, languageToPopulate=default";
+            $f->label = __('Populate field content to all languages');
+            $f->description = __('Only check this if this if the default language is the first language you are importing.');
+            $f->columnWidth = 34;
             $childEditSet->add($f);
         }
 
         // User CSV Import Settings
-        if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings']) && (in_array('add', $currentData['editModes']) || in_array('update', $currentData['editModes']) || in_array('replace', $currentData['editModes']))) {
+        if((isset($this->currentData['allowOverrideCsvImportSettings']) && $this->currentData['allowOverrideCsvImportSettings']) && (in_array('add', $this->currentData['editModes']) || in_array('update', $this->currentData['editModes']) || in_array('replace', $this->currentData['editModes']))) {
 
             $csvSettingsFieldset = $this->wire('modules')->get("InputfieldFieldset");
             $csvSettingsFieldset->label = __("CSV Import Settings");
             $csvSettingsFieldset->showIf = "edit_mode=add|update|replace";
             //if all CSV settings are the same as defaults (page or module level), then collapse
-            if($fieldSeparator == $currentData['csvImportFieldSeparator'] && $fieldEnclosure == $currentData['csvImportFieldEnclosure'] && $ignoreFirstRow == $currentData['ignoreFirstRow']) $csvSettingsFieldset->collapsed = Inputfield::collapsedYes;
+            if($fieldSeparator == $this->currentData['csvImportFieldSeparator'] && $fieldEnclosure == $this->currentData['csvImportFieldEnclosure'] && $ignoreFirstRow == $this->currentData['ignoreFirstRow']) $csvSettingsFieldset->collapsed = Inputfield::collapsedYes;
             $childEditSet->add($csvSettingsFieldset);
 
             $f = $this->wire('modules')->get("InputfieldText");
@@ -574,7 +597,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->label = __('CSV fields separated with');
             $f->showIf = "edit_mode=add|update|replace";
             $f->notes = __('For tab separated, enter: tab');
-            $f->value = $this->wire('session')->userCsvImportFieldSeparator ? $this->wire('session')->userCsvImportFieldSeparator : $currentData['csvImportFieldSeparator'];
+            $f->value = $this->wire('session')->userCsvImportFieldSeparator ? $this->wire('session')->userCsvImportFieldSeparator : $this->currentData['csvImportFieldSeparator'];
             $f->columnWidth = 33;
             $csvSettingsFieldset->append($f);
 
@@ -582,7 +605,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->name = 'userCsvImportFieldEnclosure';
             $f->label = __('CSV field enclosure');
             $f->showIf = "edit_mode=add|update|replace";
-            $f->value = $this->wire('session')->userCsvImportFieldEnclosure ? $this->wire('session')->userCsvImportFieldEnclosure : $currentData['csvImportFieldEnclosure'];
+            $f->value = $this->wire('session')->userCsvImportFieldEnclosure ? $this->wire('session')->userCsvImportFieldEnclosure : $this->currentData['csvImportFieldEnclosure'];
             $f->columnWidth = 34;
             $csvSettingsFieldset->append($f);
 
@@ -593,151 +616,151 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->showIf = "edit_mode=add|update|replace";
             //using $this->wire('session')->userCsvImportFieldSeparator in the ternary conditional because when $this->wire('session')->userIgnoreFirstRow is not "1", it doesn't seem to exist, even with isset!
             //this is fine, because once page has been saved, with any of these overrides, we have values for all in the session variable
-            $f->attr('checked', ($this->wire('session')->userCsvImportFieldSeparator ? $this->wire('session')->userIgnoreFirstRow : $currentData['ignoreFirstRow']) ? 'checked' : '' );
+            $f->attr('checked', ($this->wire('session')->userCsvImportFieldSeparator ? $this->wire('session')->userIgnoreFirstRow : $this->currentData['ignoreFirstRow']) ? 'checked' : '' );
             $f->columnWidth = 33;
             $csvSettingsFieldset->append($f);
         }
 
         // Add
-        if(in_array('add', $currentData['editModes'])) {
+        if(in_array('add', $this->currentData['editModes'])) {
 
             $csvFieldset = $this->wire('modules')->get("InputfieldFieldset");
-            $csvFieldset->label = $currentData['addModeTitle'];
-            $csvFieldset->description = $currentData['addModeDescription'];
-            $csvFieldset->notes = $currentData['addModeNotes'];
+            $csvFieldset->label = $this->currentData['addModeTitle'];
+            $csvFieldset->description = $this->currentData['addModeDescription'];
+            $csvFieldset->notes = $this->currentData['addModeNotes'];
             $csvFieldset->showIf = "edit_mode=add";
             $childEditSet->add($csvFieldset);
 
-            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions']) || !$currentData['csvOptions']) {
+            if(is_array($this->currentData['csvOptions']) && in_array('paste', $this->currentData['csvOptions']) || !$this->currentData['csvOptions']) {
                 $f = $this->wire('modules')->get("InputfieldTextarea");
                 $f->name = "childPagesAdd";
                 $f->showIf = "edit_mode=add";
                 $f->label = __("Text / Paste CSV");
-                if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
-                $f->attr('value', $currentData['ignoreFirstRow'] ? 'Title' : '');
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if($this->currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
+                $f->attr('value', $this->currentData['ignoreFirstRow'] ? 'Title' : '');
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('paste',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
-            if(is_array($currentData['csvOptions']) && in_array('link', $currentData['csvOptions'])) {
+            if(is_array($this->currentData['csvOptions']) && in_array('link', $this->currentData['csvOptions'])) {
                 $f = $this->wire('modules')->get("InputfieldURL");
                 $f->name = "csvUrlAdd";
                 $f->showIf = "edit_mode=add";
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('link',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('link',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
-            if(is_array($currentData['csvOptions']) && in_array('upload', $currentData['csvOptions'])) {
+            if(is_array($this->currentData['csvOptions']) && in_array('upload', $this->currentData['csvOptions'])) {
                 $f = $this->wire('modules')->get("InputfieldMarkup");
                 $f->label = __("Upload CSV file");
                 $f->name = 'csvUploadAdd';
                 $f->showIf = "edit_mode=add";
                 $f->value = "<input name='csvAddFile' type='file' />";
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('upload',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('upload',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
         }
 
         // Update
-        if(in_array('update', $currentData['editModes'])) {
+        if(in_array('update', $this->currentData['editModes'])) {
 
             $csvFieldset = $this->wire('modules')->get("InputfieldFieldset");
-            $csvFieldset->label = $currentData['updateModeTitle'];
-            $csvFieldset->description = $currentData['updateModeDescription'];
-            $csvFieldset->notes = $currentData['updateModeNotes'];
+            $csvFieldset->label = $this->currentData['updateModeTitle'];
+            $csvFieldset->description = $this->currentData['updateModeDescription'];
+            $csvFieldset->notes = $this->currentData['updateModeNotes'];
             $csvFieldset->showIf = "edit_mode=update";
             $childEditSet->add($csvFieldset);
 
-            if(($currentData['csvOptions'] && in_array('paste', $currentData['csvOptions'])) || !$currentData['csvOptions']) {
+            if(($this->currentData['csvOptions'] && in_array('paste', $this->currentData['csvOptions'])) || !$this->currentData['csvOptions']) {
                 $f = $this->wire('modules')->get("InputfieldTextarea");
                 $f->name = "childPagesUpdate";
                 $f->showIf = "edit_mode=update";
                 $f->label = __("Text / Paste CSV");
-                if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
-                if(!$currentData['matchByFirstField']) $f->attr('value', $this->childPages);
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if($this->currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
+                if(!$this->currentData['matchByFirstField']) $f->attr('value', $this->childPages);
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('paste',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
-            if($currentData['csvOptions'] && in_array('link', $currentData['csvOptions'])) {
+            if($this->currentData['csvOptions'] && in_array('link', $this->currentData['csvOptions'])) {
                 $f = $this->wire('modules')->get("InputfieldURL");
                 $f->name = "csvUrlUpdate";
                 $f->showIf = "edit_mode=update";
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('link',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('link',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
-            if($currentData['csvOptions'] && in_array('upload', $currentData['csvOptions'])) {
+            if($this->currentData['csvOptions'] && in_array('upload', $this->currentData['csvOptions'])) {
                 $f = $this->wire('modules')->get("InputfieldMarkup");
                 $f->label = __("Upload CSV file");
                 $f->name = 'csvUploadUpdate';
                 $f->showIf = "edit_mode=update";
                 $f->value = "<input name='csvUpdateFile' type='file' />";
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('upload',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('upload',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
         }
 
         // Replace
-        if(in_array('replace', $currentData['editModes'])) {
+        if(in_array('replace', $this->currentData['editModes'])) {
 
             $csvFieldset = $this->wire('modules')->get("InputfieldFieldset");
-            $csvFieldset->label = $currentData['replaceModeTitle'];
-            $csvFieldset->description = $currentData['replaceModeDescription'];
-            $csvFieldset->notes = $currentData['replaceModeNotes'];
+            $csvFieldset->label = $this->currentData['replaceModeTitle'];
+            $csvFieldset->description = $this->currentData['replaceModeDescription'];
+            $csvFieldset->notes = $this->currentData['replaceModeNotes'];
             $csvFieldset->showIf = "edit_mode=replace";
             $childEditSet->add($csvFieldset);
 
-            if(is_array($currentData['csvOptions']) && in_array('paste', $currentData['csvOptions']) || !$currentData['csvOptions']) {
+            if(is_array($this->currentData['csvOptions']) && in_array('paste', $this->currentData['csvOptions']) || !$this->currentData['csvOptions']) {
                 $f = $this->wire('modules')->get("InputfieldTextarea");
                 $f->name = "childPagesReplace";
                 $f->showIf = "edit_mode=replace";
                 $f->label = __("Text / Paste CSV");
-                if($currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
+                if($this->currentData['ignoreFirstRow']) $f->notes = __("If first row is 'Title' then the import settings were initially set to ignore first row of the entered data.");
                 $f->attr('value', $this->childPages);
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('paste',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('paste',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
-            if(is_array($currentData['csvOptions']) && in_array('link', $currentData['csvOptions'])) {
+            if(is_array($this->currentData['csvOptions']) && in_array('link', $this->currentData['csvOptions'])) {
                 $f = $this->wire('modules')->get("InputfieldURL");
                 $f->name = "csvUrlReplace";
                 $f->showIf = "edit_mode=replace";
                 $f->label = __("Enter URL to CSV file");
                 $f->placeholder = __("URL to CSV file");
                 $f->attr('value', '');
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('link',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('link',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->append($f);
             }
 
-            if(is_array($currentData['csvOptions']) && in_array('upload', $currentData['csvOptions'])) {
+            if(is_array($this->currentData['csvOptions']) && in_array('upload', $this->currentData['csvOptions'])) {
                 $f = $this->wire('modules')->get("InputfieldMarkup");
                 $f->label = __("Upload CSV file");
                 $f->name = 'csvUploadReplace';
                 $f->showIf = "edit_mode=replace";
                 $f->value = "<input name='csvReplaceFile' type='file' />";
-                if(!$currentData['csvOptionsCollapsed'] || ($currentData['csvOptionsCollapsed'] && !in_array('upload',$currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
+                if(!$this->currentData['csvOptionsCollapsed'] || ($this->currentData['csvOptionsCollapsed'] && !in_array('upload',$this->currentData['csvOptionsCollapsed']))) $f->collapsed = Inputfield::collapsedYes;
                 $csvFieldset->add($f);
             }
 
         }
 
         // Edit
-        if(in_array('edit', $currentData['editModes'])) {
+        if(in_array('edit', $this->currentData['editModes'])) {
             $results = $this->wire('modules')->get('InputfieldMarkup');
             $results->attr('id', 'edit');
             $results->showIf = "edit_mode=edit";
-            $results->label = $currentData['editModeTitle'];
-            $results->description = $currentData['editModeDescription'];
-            $results->notes = $currentData['editModeNotes'];
+            $results->label = $this->currentData['editModeTitle'];
+            $results->description = $this->currentData['editModeDescription'];
+            $results->notes = $this->currentData['editModeNotes'];
             $table = $this->wire('modules')->get('MarkupAdminDataTable');
             $headerRow = array(
                 __('Sort'),
@@ -825,7 +848,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $pp->sortfield == 'sort' && $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
                     '<input id="'.$cp->id.'" type="text" name="individualChildTitles['.$cp->id.']" placeholder="'.htmlspecialchars($cp->title, ENT_QUOTES, "UTF-8").'" value="'.htmlspecialchars($this->getLanguageVersion($cp, 'title', $userLang, true), ENT_QUOTES, "UTF-8").'" style="width:calc(100% - 20px)" '. (!$cp->editable() ? " readonly" : "") . ' />' . ($this->wire('languages') && $this->wire('languages')->count() > 1 && $this->titleMultiLanguage && !$cp->title->getLanguageValue($userLang) ? '&nbsp;<i class="fa fa-info-circle" title="No title for '.$userLang->title.'" style="color:#cccccc" aria-hidden="true"></i>' : ''),
                     '<span class="bcePageNameContainer"><span class="bcePageName" ' . $langInfo . ' id="name_'.$cp->id.'" style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$this->getLanguageVersion($cp, 'name', $userLang, true) . ($this->wire('modules')->isInstalled("LanguageSupportPageNames") && !$cp->localName($userLang) ? '</span>&nbsp;<i class="fa fa-info-circle" title="No name for '.$userLang->title.'" style="color:#cccccc; float:right" aria-hidden="true"></i>' : '') . '</span>',
-                    $currentData['allowTemplateChanges'] && $this->wire('user')->hasPermission("page-template", $cp) ? '<select id="template_'.$cp->id.'" name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : '<span id="template_'.$cp->id.'">'.($cp->template->label ?: $cp->template->name).'</span>',
+                    $this->currentData['allowTemplateChanges'] && $this->wire('user')->hasPermission("page-template", $cp) ? '<select id="template_'.$cp->id.'" name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : '<span id="template_'.$cp->id.'">'.($cp->template->label ?: $cp->template->name).'</span>',
                     '<input id="hiddenStatus_'.$cp->id.'" class="hiddenStatus" name="hiddenStatus['.$cp->id.']" type="checkbox" '.($cp->is(Page::statusHidden) ? 'checked' : '').'/>',
                     '<input id="unpublishedStatus_'.$cp->id.'" class="unpublishedStatus" name="unpublishedStatus['.$cp->id.']" type="checkbox"'.($cp->is(Page::statusUnpublished) ? ' checked' : '').(!$allowPublish ? ' disabled' : '').'/>',
                     $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
@@ -856,26 +879,26 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
 
         // Lister
-        if(in_array('lister', $currentData['editModes']) && $this->wire('user')->hasPermission('page-lister')) {
+        if(in_array('lister', $this->currentData['editModes']) && $this->wire('user')->hasPermission('page-lister')) {
 
             $listerFieldset = $this->wire('modules')->get("InputfieldFieldset");
-            $listerFieldset->label = $currentData['listerModeTitle'];
-            $listerFieldset->description = $currentData['listerModeDescription'];
-            $listerFieldset->notes = $currentData['listerModeNotes'];
+            $listerFieldset->label = $this->currentData['listerModeTitle'];
+            $listerFieldset->description = $this->currentData['listerModeDescription'];
+            $listerFieldset->notes = $this->currentData['listerModeNotes'];
             $listerFieldset->showIf = "edit_mode=lister";
             $childEditSet->add($listerFieldset);
 
             $this->wire('modules')->get('JqueryCore')->use('iframe-resizer');
             $f = $this->wire('modules')->get('InputfieldMarkup');
-            $f->markupFunction = function($inputfield) use($pp, $currentData) {
+            $f->markupFunction = function($inputfield) use($pp) {
                 // bookmarks for Lister
                 $inputfield->wire('modules')->includeModule('ProcessPageLister');
-                $customDefaultFilter = $currentData['defaultFilter'] ? ", {$currentData['defaultFilter']}" : "";
+                $customDefaultFilter = $this->currentData['defaultFilter'] ? ", {$this->currentData['defaultFilter']}" : "";
                 $bookmark = array(
                     'initSelector' => '',
                     'defaultSelector' => "parent={$pp->id}, include=all{$customDefaultFilter}",
-                    'defaultSort' => $currentData['listerDefaultSort'],
-                    'columns' => $currentData['listerColumns'],
+                    'defaultSort' => $this->currentData['listerDefaultSort'],
+                    'columns' => $this->currentData['listerColumns'],
                     'toggles' => array('noButtons'),
                     'allowBookmarks' => false,
                     'allowIncludeAll' => true,
@@ -884,7 +907,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     'editOption' => 2,
                 );
                 $id = "bce_".(int)$this->wire('input')->get->id."_children";
-                $url = ProcessPageLister::addSessionBookmark($id, $bookmark) . '&modal=inline&minimal='.($currentData['listerConfigurable'] ? '0' : '1');
+                $url = ProcessPageLister::addSessionBookmark($id, $bookmark) . '&modal=inline&minimal='.($this->currentData['listerConfigurable'] ? '0' : '1');
                 if($url) return "
                     <iframe id='BatchChildEditorPageLister' scrolling='no' style='width:100%; border: none;' src='$url'></iframe>
                     <script>
@@ -908,13 +931,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 //if(count($_GET)) $lister->sessionClear();
                 $lister->initSelector = '';
                 $lister->parent = $pp->id;
-                $customDefaultFilter = $currentData['defaultFilter'] ? ", {$currentData['defaultFilter']}" : "";
+                $customDefaultFilter = $this->currentData['defaultFilter'] ? ", {$this->currentData['defaultFilter']}" : "";
                 $lister->defaultSelector = "parent={$pp->id}, include=all{$customDefaultFilter}";
-                $lister->defaultSort = $currentData['listerDefaultSort'];
+                $lister->defaultSort = $this->currentData['listerDefaultSort'];
                 $lister->limit = 25;
                 $lister->useColumnLabels = 1;
                 //$lister->preview = false;
-                $lister->columns = $currentData['listerColumns'];
+                $lister->columns = $this->currentData['listerColumns'];
                 $lister->toggles = array('noButtons');
                 $lister->allowBookmarks = false;
                 $lister->allowIncludeAll = true;
@@ -929,15 +952,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
 
         // Export
-        if(in_array('export', $currentData['editModes']) && $pp->numChildren() > 0) {
+        if(in_array('export', $this->currentData['editModes']) && $pp->numChildren() > 0) {
 
             //if Process helper module is not installed, install it
             if(!$this->wire('modules')->isInstalled("ProcessChildrenCsvExport")) $this->wire('modules')->get("ProcessChildrenCsvExport");
 
             $exportFieldset = $this->wire('modules')->get("InputfieldFieldset");
-            $exportFieldset->label = $currentData['exportModeTitle'];
-            $exportFieldset->description = $currentData['exportModeDescription'];
-            $exportFieldset->notes = $currentData['exportModeNotes'];
+            $exportFieldset->label = $this->currentData['exportModeTitle'];
+            $exportFieldset->description = $this->currentData['exportModeDescription'];
+            $exportFieldset->notes = $this->currentData['exportModeNotes'];
             $exportFieldset->showIf = "edit_mode=export";
             $childEditSet->add($exportFieldset);
 
@@ -948,7 +971,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
             }
 
-            if($currentData['allowOverrideCsvExportSettings']) {
+            if($this->currentData['allowOverrideCsvExportSettings']) {
 
                 if(isset($this->data['pageSettings'][$settingsPage->id])) {
 
@@ -957,7 +980,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $f->label = __('Pages to Include');
                     $f->description = __('Leave blank to automatically select all child pages&nbsp;(not hidden and published)');
                     $f->initValue = "parent={$pp->id}";
-                    $f->value = $currentData['pagesToInclude'];
+                    $f->value = $this->currentData['pagesToInclude'];
                     $f->collapsed = Inputfield::collapsedBlank;
                     $exportFieldset->add($f);
 
@@ -1011,21 +1034,21 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'export_column_separator';
                 $f->label = __('Columns separated with');
                 $f->notes = __('For tab separated, enter: tab');
-                $f->value = $currentData['csvExportFieldSeparator'];
+                $f->value = $this->currentData['csvExportFieldSeparator'];
                 $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
                 $f = $this->wire('modules')->get("InputfieldText");
                 $f->name = 'export_column_enclosure';
                 $f->label = __('Column enclosure');
-                $f->value = $currentData['csvExportFieldEnclosure'];
+                $f->value = $this->currentData['csvExportFieldEnclosure'];
                 $f->columnWidth = 34;
                 $exportFieldset->add($f);
 
                 $f = $this->wire('modules')->get("InputfieldText");
                 $f->name = 'export_extension';
                 $f->label = __('File extension');
-                $f->value = $currentData['csvExportExtension'];
+                $f->value = $this->currentData['csvExportExtension'];
                 $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
@@ -1034,7 +1057,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __('Multiple values separator');
                 $f->description = __('Separator for multiple values like Page fields, files/images, multiplier, etc.');
                 $f->notes = __('Default is | Other useful options include \r for new lines when importing into Excel.');
-                $f->value = $currentData['exportMultipleValuesSeparator'];
+                $f->value = $this->currentData['exportMultipleValuesSeparator'];
                 $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
@@ -1042,7 +1065,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->name = 'export_names_first_row';
                 $f->label = __('Column labels');
                 $f->label2 = 'Put column names in the first row';
-                $f->attr('checked', $currentData['columnsFirstRow'] ? 'checked' : '' );
+                $f->attr('checked', $this->currentData['columnsFirstRow'] ? 'checked' : '' );
                 $f->columnWidth = 34;
                 $exportFieldset->add($f);
 
@@ -1051,7 +1074,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->label = __('Format Export');
                 $f->label2 = __('Turns on output formatting for exported values.');
                 $f->notes = __('If you will be importing this back into ProcessWire, you should leave unchecked.');
-                $f->attr('checked', $currentData['formatExport'] ? 'checked' : '' );
+                $f->attr('checked', $this->currentData['formatExport'] ? 'checked' : '' );
                 $f->columnWidth = 33;
                 $exportFieldset->add($f);
 
@@ -1060,16 +1083,16 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             else {
                 $f = $this->wire('modules')->get("InputfieldMarkup");
                 $f->attr('name', 'csv_settings');
-                $exportFields = $currentData['exportFields'] ? implode(',', $currentData['exportFields']) : implode(',', $allFields);
+                $exportFields = $this->currentData['exportFields'] ? implode(',', $this->currentData['exportFields']) : implode(',', $allFields);
                 $f->value = "
                 <input id='Inputfield_exportFields' type='hidden' value='{$exportFields}' />
-                <input id='Inputfield_pagesToInclude' type='hidden' value='{$currentData['pagesToInclude']}' />
-                <input id='Inputfield_export_column_separator' type='hidden' value='{$currentData['csvExportFieldSeparator']}' />
-                <input id='Inputfield_export_column_enclosure' type='hidden' value='{$currentData['csvExportFieldEnclosure']}' />
-                <input id='Inputfield_export_extension' type='hidden' value='{$currentData['csvExportExtension']}' />
-                <input id='Inputfield_export_multiple_values_separator' type='hidden' value='{$currentData['exportMultipleValuesSeparator']}' />
-                <input id='Inputfield_format_export' type='hidden' value='{$currentData['formatExport']}' />
-                <input id='Inputfield_export_names_first_row' type='hidden' value='{$currentData['columnsFirstRow']}' />
+                <input id='Inputfield_pagesToInclude' type='hidden' value='{$this->currentData['pagesToInclude']}' />
+                <input id='Inputfield_export_column_separator' type='hidden' value='{$this->currentData['csvExportFieldSeparator']}' />
+                <input id='Inputfield_export_column_enclosure' type='hidden' value='{$this->currentData['csvExportFieldEnclosure']}' />
+                <input id='Inputfield_export_extension' type='hidden' value='{$this->currentData['csvExportExtension']}' />
+                <input id='Inputfield_export_multiple_values_separator' type='hidden' value='{$this->currentData['exportMultipleValuesSeparator']}' />
+                <input id='Inputfield_format_export' type='hidden' value='{$this->currentData['formatExport']}' />
+                <input id='Inputfield_export_names_first_row' type='hidden' value='{$this->currentData['columnsFirstRow']}' />
                 ";
                 $f->addClass('InputfieldHidden');
                 $exportFieldset->add($f);
@@ -1116,18 +1139,22 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //set the current activateOtherLanguages status so it is remembered for next operation
         $this->wire('session')->activateOtherLanguages = $this->wire('input')->post->activateOtherLanguages ? 1 : 0;
 
+        $this->wire('session')->populateToAllLanguages = $this->wire('input')->post->populateToAllLanguages ? 1 : 0;
+        $this->wire('session')->languageToPopulate = $this->wire('input')->post->languageToPopulate;
+
+
         $pp = $event->object->getPage();
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        $this->currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
 
-        if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = $this->wire('pages')->get($currentData['parentPage']);
+        if(isset($this->currentData['parentPage']) && $this->currentData['parentPage']) $pp = $this->wire('pages')->get($this->currentData['parentPage']);
 
         //get user CSV setting overrides if allowed
-        if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
-            $currentData['csvImportFieldSeparator'] = $this->wire('session')->userCsvImportFieldSeparator;
-            $currentData['csvImportFieldEnclosure'] = $this->wire('session')->userCsvImportFieldEnclosure;
-            $currentData['ignoreFirstRow'] = $this->wire('session')->userIgnoreFirstRow;
+        if((isset($this->currentData['allowOverrideCsvImportSettings']) && $this->currentData['allowOverrideCsvImportSettings'])) {
+            $this->currentData['csvImportFieldSeparator'] = $this->wire('session')->userCsvImportFieldSeparator;
+            $this->currentData['csvImportFieldEnclosure'] = $this->wire('session')->userCsvImportFieldEnclosure;
+            $this->currentData['ignoreFirstRow'] = $this->wire('session')->userIgnoreFirstRow;
         }
 
         //use the selected template or if none selected then it means there is only one childTemplate option [0], so use that
@@ -1144,11 +1171,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $this->error($this->_("The CSV file was empty, so no pages can be created."));
                 return;
             }
-            //if content (textarea, URL or CSV upload) hasn't changed, escape now to prevent unwanted deletion and recreation of pages
-            if($childPagesReplace == $this->childPages) return;
+            //if content (textarea, URL or CSV upload) and the selected template hasn't changed, escape now to prevent unwanted deletion and recreation of pages
+            if($childPagesReplace == $this->childPages && $this->wire('input')->post->childTemplate == $pp->children("include=all")->last()->template) return;
 
 
-            if(!$currentData['disableContentProtection']) {
+            if(!$this->currentData['disableContentProtection']) {
                 $disableNote = $this->wire('user')->isSuperuser() ? __(" You can prevent this check by disabling Content Protection in the module config settings.") : '';
                 foreach($pp->children("include=all") as $cp) {
                     if($cp->numChildren>0) {
@@ -1176,8 +1203,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $this->error($this->_("The CSV file was empty, so no pages can be created."));
                 return;
             }
-            //if content (textarea, URL or CSV upload) hasn't changed, escape now to prevent unwanted deletion and recreation of pages
-            if($childPagesUpdate == $this->childPages) return;
+
+            //if content (textarea, URL or CSV upload) and the selected template hasn't changed, escape now to prevent unwanted deletion and recreation of pages
+            if($childPagesUpdate == $this->childPages && $this->wire('input')->post->childTemplate == $pp->children("include=all")->last()->template) return;
 
             $this->createPages($childPagesUpdate, $pp, $childTemplate);
         }
@@ -1194,7 +1222,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 foreach($idsToDelete as $id) {
                     $ptod = $this->wire('pages')->get($id);
 
-                    if(!$currentData['disableContentProtection']) {
+                    if(!$this->currentData['disableContentProtection']) {
                         $disableNote = $this->wire('user')->isSuperuser() ? __(" You can prevent this check by disabling Content Protection in the module config settings.") : '';
                         if($ptod->numChildren>0) {
                             $this->error($this->_("You cannot delete this child page, because it has a child page of its own." . $disableNote));
@@ -1212,7 +1240,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     }
 
                     if($id!='' && $ptod->trashable()) {
-                        $currentData['trashOrDelete'] == 'delete' ? $this->wire('pages')->delete($ptod, true) : $this->wire('pages')->trash($ptod);
+                        $this->currentData['trashOrDelete'] == 'delete' ? $this->wire('pages')->delete($ptod, true) : $this->wire('pages')->trash($ptod);
                     }
                 }
             }
@@ -1247,7 +1275,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
                     $cp = $this->wire('pages')->get($id);
 
-                    if($currentData['allowTemplateChanges'] && $this->wire('user')->hasPermission("page-template", $cp)) $cp->template = $this->wire('input')->post->templateId[$cp->id];
+                    if($this->currentData['allowTemplateChanges'] && $this->wire('user')->hasPermission("page-template", $cp)) $cp->template = $this->wire('input')->post->templateId[$cp->id];
 
                     if(!is_null($this->wire('input')->post->langActiveStatus)) {
                         if(array_key_exists($cp->id, $this->wire('input')->post->langActiveStatus)) {
@@ -1282,7 +1310,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 // if new set default language to same title as current language title
                 if($this->titleMultiLanguage && strpos($id, 'new') !== FALSE && $childTitle != '') $cp->setLanguageValue('default', 'title', $childTitle);
 
-                if($cp->isChanged('title') && ($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames']))) {
+                if($cp->isChanged('title') && ($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames']))) {
 
                     $n = 0;
                     $pageName = $this->wire('sanitizer')->pageName($childTitle, Sanitizer::translate);
@@ -1352,14 +1380,14 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     public function createPages($childPages, $pp, $childTemplate) {
 
         //populate currentData with pageSettings version if page has specific settings
-        $currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
-        if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = $this->wire('pages')->get($currentData['parentPage']);
+        $this->currentData = in_array($pp->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$pp->id]) && $this->data['pageSettings'][$pp->id] ? $this->data['pageSettings'][$pp->id] : $this->data;
+        if(isset($this->currentData['parentPage']) && $this->currentData['parentPage']) $pp = $this->wire('pages')->get($this->currentData['parentPage']);
 
         //get user CSV setting overrides if allowed
-        if((isset($currentData['allowOverrideCsvImportSettings']) && $currentData['allowOverrideCsvImportSettings'])) {
-            $currentData['csvImportFieldSeparator'] = $this->wire('session')->userCsvImportFieldSeparator = $this->wire('input')->post->userCsvImportFieldSeparator;
-            $currentData['csvImportFieldEnclosure'] = $this->wire('session')->userCsvImportFieldEnclosure = $this->wire('input')->post->userCsvImportFieldEnclosure;
-            $currentData['ignoreFirstRow'] = $this->wire('session')->userIgnoreFirstRow = $this->wire('input')->post->userIgnoreFirstRow;
+        if((isset($this->currentData['allowOverrideCsvImportSettings']) && $this->currentData['allowOverrideCsvImportSettings'])) {
+            $this->currentData['csvImportFieldSeparator'] = $this->wire('session')->userCsvImportFieldSeparator = $this->wire('input')->post->userCsvImportFieldSeparator;
+            $this->currentData['csvImportFieldEnclosure'] = $this->wire('session')->userCsvImportFieldEnclosure = $this->wire('input')->post->userCsvImportFieldEnclosure;
+            $this->currentData['ignoreFirstRow'] = $this->wire('session')->userIgnoreFirstRow = $this->wire('input')->post->userIgnoreFirstRow;
         }
 
         if($childPages == '') return;
@@ -1371,15 +1399,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         $childPagesArray = new parseCSV();
         $childPagesArray->encoding('UTF-16', 'UTF-8');
-        $childPagesArray->heading = $currentData['ignoreFirstRow'];
-        $childPagesArray->delimiter = $currentData['csvImportFieldSeparator'] == "tab" ? chr(9) : $currentData['csvImportFieldSeparator'];
-        $childPagesArray->enclosure = $currentData['csvImportFieldEnclosure'];
+        $childPagesArray->heading = $this->currentData['ignoreFirstRow'];
+        $childPagesArray->delimiter = $this->currentData['csvImportFieldSeparator'] == "tab" ? chr(9) : $this->currentData['csvImportFieldSeparator'];
+        $childPagesArray->enclosure = $this->currentData['csvImportFieldEnclosure'];
         $childPagesArray->parse($childPages);
 
 
         //if defined, get field pairings
         if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
-            $convertedFieldPairings = $this->convertFieldPairings($currentData['fieldPairings']);
+            $convertedFieldPairings = $this->convertFieldPairings($this->currentData['fieldPairings']);
             //if it exists, move title to first position in array but maintain keys for pairing to CSV columns
             $titleKey = array_search('title', $convertedFieldPairings);
             if($titleKey) $convertedFieldPairings = array($titleKey => $convertedFieldPairings[$titleKey]) + $convertedFieldPairings;
@@ -1414,22 +1442,22 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if($x==1 && $this->wire('input')->post->edit_mode == "replace") {
                 foreach($pp->children("include=all") as $cp) {
                     if(!$cp->is(Page::statusSystemID) && $cp->trashable()) {
-                        $currentData['trashOrDelete'] == 'delete' ? $this->wire('pages')->delete($cp, true) : $this->wire('pages')->trash($cp);
+                        $this->currentData['trashOrDelete'] == 'delete' ? $this->wire('pages')->delete($cp, true) : $this->wire('pages')->trash($cp);
                     }
                 }
             }
 
             //create new or edit existing child pages
             //if fieldPairings is defined and this is first column, then set name/title and create new / get existing page
-            if($i==0 && $currentData['fieldPairings'] != '') {
+            if($i==0 && $this->currentData['fieldPairings'] != '') {
                 // if title key exists, then make sure it is populated
                 // not necessary in update mode only setups so it may be not set
                 if($titleKey && $row[$titleKey-1] == '') continue;
                 //update mode so re-title/re-name existing page
                 if($this->wire('input')->post->edit_mode == "update") {
-                    $np = $currentData['matchByFirstField'] ? $pp->child($convertedFieldPairings[$i+1]."=".$this->wire('sanitizer')->selectorValue($row[0]).", include=all") : $pp->children("include=all")->eq($x-1);
+                    $np = $this->currentData['matchByFirstField'] ? $pp->child($convertedFieldPairings[$i+1]."=".$this->wire('sanitizer')->selectorValue($row[0]).", include=all") : $pp->children("include=all")->eq($x-1);
                     if(!$np->id) {
-                        if($currentData['addNewNoMatch']) {
+                        if($this->currentData['addNewNoMatch']) {
                             $newPage = true;
                             $np = $this->newPage($pp, $childTemplate);
                             $np->of(false);
@@ -1439,8 +1467,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             continue;
                         }
                     }
-                    if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])) {
-                        if($titleKey) $np->name = trim($this->wire('sanitizer')->pageName($row[$titleKey-1], Sanitizer::translate));
+                    if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
+                        if($titleKey) $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($row[$titleKey-1], Sanitizer::translate)), $np, $newPage);
                     }
                 }
                 //not update mode, so create new page
@@ -1450,26 +1478,18 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 }
 
                 if($titleKey) {
-                    if(!$currentData['noCaseUpdate'] && $np->title !== trim($this->wire('sanitizer')->text($row[$titleKey-1]))) {
-                        $newPageTitle = trim($this->wire('sanitizer')->text($row[$titleKey-1]));
-                        $np->title = $newPageTitle;
-                        // if new set default language to same title as current language title
-                        if($this->titleMultiLanguage && $newPage && $newPageTitle != '') {
-                            $np->setLanguageValue('default', 'title', $newPageTitle);
-                        }
+                    if(!$this->currentData['noCaseUpdate'] && $np->title !== trim($this->wire('sanitizer')->text($row[$titleKey-1]))) {
+                        $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($row[$titleKey-1])), $np, $newPage);
                     }
                 }
-                if($np->isChanged("title")) {
-                    $np->of(false);
-                    $np->save();
-                }
+
             }
 
             //creating pages and populating fields
             foreach($row as $childFieldValue) {
                 $childFieldValue = trim($childFieldValue);
                 //if fieldPairings is defined now populate the rest of the fields
-                if($currentData['fieldPairings'] != '') {
+                if($this->currentData['fieldPairings'] != '') {
                     //populate new page with rest of the field values
                     if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
                         //check for subfields (eg textareas pro field) with a period (.) separator
@@ -1482,21 +1502,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             }
                         }
                         else {
-                            $f = $this->wire('fields')->get($convertedFieldPairings[$i+1]);
-                            if($f->usePurifier) $childFieldValue = $this->wire('sanitizer')->purify($childFieldValue);
-                            if($f->type instanceof FieldtypePage) {
-                                $this->updatePageFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue);
-                            }
-                            elseif($f->type instanceof FieldtypeFile) {
-                                $this->updateFileFields($f, $convertedFieldPairings[$i+1], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue, $currentData['newImageFirst']);
-                            }
-                            else {
-                                $np->{$convertedFieldPairings[$i+1]} = $childFieldValue;
-                            }
-                            if($np->isChanged($convertedFieldPairings[$i+1])) {
-                                $np->of(false);
-                                $np->save($convertedFieldPairings[$i+1]);
-                            }
+                            $this->populateField($np, $convertedFieldPairings[$i+1], $childFieldValue);
                         }
                     }
                 }
@@ -1508,9 +1514,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         //update mode so re-title/re-name existing page
                         if($this->wire('input')->post->edit_mode == "update") {
                             $np = $pp->children("include=all")->eq($x-1);
-                            if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$currentData['allowOverrideOverwriteNames'] && $currentData['overwriteNames'])) {
+                            if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
                                 if($np && $np->id) {
-                                    $np->name = trim($this->wire('sanitizer')->pageName($childFieldValue, Sanitizer::translate));
+                                    $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($childFieldValue, Sanitizer::translate)), $np, $newPage);
                                 }
                                 // for new pages added at the end when using Update mode
                                 else {
@@ -1526,17 +1532,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                             $np = $this->newPage($pp, $childTemplate);
                         }
 
-                        $newPageTitle = trim($this->wire('sanitizer')->text($childFieldValue));
-                        $np->title = $newPageTitle;
-                        // if new set default language to same title as current language title
-                        if($this->titleMultiLanguage && $newPage && $newPageTitle != '') {
-                            $np->setLanguageValue('default', 'title', $newPageTitle);
-                        }
-
-                        if($np->isChanged("title")) {
-                            $np->of(false);
-                            $np->save();
-                        }
+                        $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($childFieldValue)), $np, $newPage);
 
                         //populate numeric array of field names
                         $fieldsArray = array();
@@ -1544,26 +1540,61 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     }
                     //populate new page with rest of the field values
                     else {
-                        $f = $this->wire('fields')->get($fieldsArray[$i]);
-                        if($f->usePurifier) $childFieldValue = $this->wire('sanitizer')->purify($childFieldValue);
-                        if($f->type instanceof FieldtypePage) {
-                            $this->updatePageFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue);
-                        }
-                        elseif($f->type instanceof FieldtypeFile) {
-                            $this->updateFileFields($f, $fieldsArray[$i], $np, $currentData['importMultipleValuesSeparator'], $childFieldValue, $currentData['newImageFirst']);
-                        }
-                        else {
-                            $np->{$fieldsArray[$i]} = $childFieldValue;
-                        }
-
-                        if($np->isChanged($fieldsArray[$i])) {
-                            $np->of(false);
-                            $np->save($fieldsArray[$i]);
-                        }
+                        $this->populateField($np, $fieldsArray[$i], $childFieldValue);
                     }
                 }
                 $i++;
             }
+        }
+    }
+
+
+
+    private function setPageTitleOrName($titleOrName, $value, $np, $newPage) {
+        // if new set default language to same title as current language title
+        if($this->titleMultiLanguage && $newPage && $value != '') {
+            $np->setLanguageValue('default', $titleOrName, $value);
+        }
+        if($this->titleMultiLanguage) {
+            $langs = $this->wire('session')->populateToAllLanguages ? $this->wire('languages') : array($this->wire('session')->languageToPopulate);
+            foreach($langs as $lang) {
+                $np->setLanguageValue($lang, $titleOrName, $value);
+            }
+        }
+        else {
+            $np->{$titleOrName} = $value;
+        }
+
+        if($np->isChanged("title")) {
+            $np->of(false);
+            $np->save();
+        }
+    }
+
+    private function populateField($np, $fieldName, $childFieldValue) {
+        $f = $this->wire('fields')->get($fieldName);
+        if($f->usePurifier) $childFieldValue = $this->wire('sanitizer')->purify($childFieldValue);
+        if($f->type instanceof FieldtypePage) {
+            $this->updatePageFields($f, $fieldName, $np, $this->currentData['importMultipleValuesSeparator'], $childFieldValue);
+        }
+        elseif($f->type instanceof FieldtypeFile) {
+            $this->updateFileFields($f, $fieldName, $np, $this->currentData['importMultipleValuesSeparator'], $childFieldValue, $this->currentData['newImageFirst']);
+        }
+        else {
+            if($this->wire('languages') && $f->type instanceof FieldtypeLanguageInterface) {
+                $langs = $this->wire('session')->populateToAllLanguages ? $this->wire('languages') : array($this->wire('session')->languageToPopulate);
+                foreach($langs as $lang) {
+                    $np->{$fieldName}->setLanguageValue($lang, $childFieldValue);
+                }
+            }
+            else {
+                $np->{$fieldName} = $childFieldValue;
+            }
+        }
+
+        if($np->isChanged($fieldName)) {
+            $np->of(false);
+            $np->save($fieldName);
         }
     }
 
@@ -1600,7 +1631,15 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if($importMultipleValuesSeparator == '\n') $importMultipleValuesSeparator = chr(10);
         if($f->derefAsPage === 0) {
             foreach(explode($importMultipleValuesSeparator, $childFieldValue) as $title) {
-                $pageMatch = $this->wire('pages')->get("id=$options, title={$title}");
+                $pageMatch = null;
+                // if ID supplied instead of actually a title
+                if(is_numeric($title)) {
+                    $pageMatch = $this->wire('pages')->get("id=$options, id={$title}");
+                }
+                // now if title is not numeric, or if ID check didn't match (maybe numeric title was actually a title, not an ID)
+                if(!is_numeric($title) || !$pageMatch->id) {
+                    $pageMatch = $this->wire('pages')->get("id=$options, title={$title}");
+                }
                 if(!$pageMatch->id && $title!='') {
                     $newPageFieldPage = $this->createNewPageFieldPage($title, $options);
                     $np->$fieldsArrayItem->add($newPageFieldPage);
