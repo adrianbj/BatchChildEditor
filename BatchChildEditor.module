@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.3',
+            'version' => '1.8.4',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1625,7 +1625,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             if(file_exists($childFieldValue) || strpos($childFieldValue,'//') !== false) {
                 try {
                     $imageName = $this->wire('sanitizer')->pageName(pathinfo($childFieldValue, PATHINFO_BASENAME), Sanitizer::translate);
-                    $existingImage = $np->$fieldsArrayItem->get("name=".$imageName);
+                    $existingImage = $np->$fieldsArrayItem->get("name=".$this->wire('sanitizer')->selectorValue($imageName));
                     if($this->wire('fields')->get($fieldsArrayItem)->overwrite && $existingImage) {
                         $np->of(false);
                         $np->{$fieldsArrayItem}->remove($existingImage);
@@ -1655,11 +1655,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $pageMatch = null;
                 // if ID supplied instead of actually a title
                 if(is_numeric($title)) {
-                    $pageMatch = $this->wire('pages')->get("id=$options, id={$title}");
+                    $pageMatch = $this->wire('pages')->get("id=$options, id={$this->wire('sanitizer')->selectorValue($title)}");
                 }
                 // now if title is not numeric, or if ID check didn't match (maybe numeric title was actually a title, not an ID)
                 if(!is_numeric($title) || !$pageMatch->id) {
-                    $pageMatch = $this->wire('pages')->get("id=$options, title={$title}");
+                    $pageMatch = $this->wire('pages')->get("id=$options, title={$this->wire('sanitizer')->selectorValue($title)}");
                 }
                 if(!$pageMatch->id && $title!='') {
                     $newPageFieldPage = $this->createNewPageFieldPage($title, $options);
@@ -1671,7 +1671,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             }
         }
         else {
-            $pageMatch = $this->wire('pages')->get("id=$options, title={$childFieldValue}");
+            $pageMatch = $this->wire('pages')->get("id=$options, title={$this->wire('sanitizer')->selectorValue($childFieldValue)}");
             if(!$pageMatch->id && $childFieldValue!='') {
                 $newPageFieldPage = $this->createNewPageFieldPage($childFieldValue, $options);
                 $np->$fieldsArrayItem = $newPageFieldPage;
