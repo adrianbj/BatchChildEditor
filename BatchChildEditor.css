@@ -50,8 +50,8 @@ table#bceLanguages td, table#bceLanguages th {
     content: "\f147"
 }
 
-.batchChildTableContainer table {
-    border-collapse: separate;
+.batchChildTableContainer tr.bceLangInfoRow {
+    border: none !important;
 }
 
 .batchChildTableContainer table.bceLanguages {
