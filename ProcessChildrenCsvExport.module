@@ -91,7 +91,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
         $fieldNames = !is_null($event) ? $event->arguments(7) : explode(',', wire('input')->get->fns);
 
         //if settings not supplied, use defaults from page or module config settings
-        $currentData = in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
+        $currentData = isset($configSettings['configurablePages']) && in_array($pp->id, $configSettings['configurablePages']) && isset($configSettings['pageSettings'][$pp->id]) && $configSettings['pageSettings'][$pp->id] ? $configSettings['pageSettings'][$pp->id] : $configSettings;
 
         if(isset($currentData['parentPage']) && $currentData['parentPage']) $pp = wire('pages')->get($currentData['parentPage']);
 
