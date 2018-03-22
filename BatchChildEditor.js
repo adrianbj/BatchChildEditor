@@ -53,10 +53,11 @@ function batchChildTableDialog() {
                         //if template has changed, then don't close on save as may need to accept confirmation of change
                         if (closeOnSave && initTemplate == $icontents.find('#template option:selected').text()) setTimeout(function () {
                             $iframe.dialog('close');
-                            var titleFieldId = langid ? '#Inputfield_title__' + langid : '#Inputfield_title';
-                            var titleVal = $icontents.find(titleFieldId).val();
+                            //var titleFieldId = langid ? '#Inputfield_title__' + langid : '#Inputfield_title';
+                            //var titleVal = $icontents.find(titleFieldId).val();
+                            var titleVal = $icontents.find('#Inputfield_title').val()
                             $('#' + pid).val(titleVal);
-                            $('#' + pid).attr('placeholder', $icontents.find('#Inputfield_title').val());
+                            $('#' + pid).attr('placeholder', titleVal);
                             var nameFieldId = langid ? '#Inputfield__pw_page_name' + langid : '#Inputfield__pw_page_name';
                             var nameVal = $icontents.find(nameFieldId).val();
                             $('#name_' + pid).text(nameVal);
