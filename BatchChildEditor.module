@@ -1430,150 +1430,187 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
         //iterate through rows in childpages data (text/paste, URL, or uploaded CSV)
         $x=0;
-        foreach($childPagesArray->data as $row) {
-
-            $newPage = false;
-            $i=0;
-            $x++;
-
-            //if fields pairings are not defined, then make sure the field count matches the number of fields in the selected child template
-            if(!isset($this->data['pageSettings'][$pp->id]['fieldPairings']) || $this->data['pageSettings'][$pp->id]['fieldPairings'] == '') {
-                //only if greater than one, because one column in each row is just for setting the title/name
-                if(count($row) > 1 && count($row) != count($this->wire('templates')->get($childTemplate)->fields)) {
-                    $this->error($this->_("The number of columns/fields in your CSV do not match the number of fields in the template. Nothing can be safely imported. If you need to exclude certain fields, make sure the CSV has blank values for the excluded fields."));
-                    return;
-                }
+        $database = $this->wire('database');
+        $useTransaction = $this->supportsTransaction();
+        try {
+            if($useTransaction) {
+                $database->beginTransaction();
             }
-            //if field pairings are defined, check that the field/column count in the CSV is at least as many as the number of defined pairings
-            //if field pairings are defined then we don't allow titles only (unless that is the only pairing defined), hence no check for count($row) > 1
-            else {
-                if(count($row) < count($convertedFieldPairings)) {
-                    $this->error($this->_("The number of columns/fields in your CSV is not enough for number of fields defined for this import. Nothing can be safely imported."));
-                    return;
-                }
-            }
+            foreach($childPagesArray->data as $row) {
 
-            //if first loop and replace mode then now it's safe to delete all existing child pages because above checks for field pairings have passed
-            if($x==1 && $this->wire('input')->post->edit_mode == "replace") {
-                foreach($pp->children("include=all") as $cp) {
-                    if(!$cp->is(Page::statusSystemID) && $cp->trashable()) {
-                        $this->currentData['trashOrDelete'] == 'delete' ? $this->wire('pages')->delete($cp, true) : $this->wire('pages')->trash($cp);
-                    }
-                }
-            }
+                $newPage = false;
+                $i=0;
+                $x++;
 
-            //create new or edit existing child pages
-            //if fieldPairings is defined and this is first column, then set name/title and create new / get existing page
-            if($i==0 && $this->currentData['fieldPairings'] != '') {
-                // if title key exists, then make sure it is populated
-                // not necessary in update mode only setups so it may be not set
-                if($titleKey && $row[$titleKey-1] == '') continue;
-                //update mode so re-title/re-name existing page
-                if($this->wire('input')->post->edit_mode == "update") {
-                    $np = $this->currentData['matchByFirstField'] ? $pp->child($convertedFieldPairings[$i+1]."=".$this->wire('sanitizer')->selectorValue($row[0]).", include=all") : $pp->children("include=all")->eq($x-1);
-                    if(!$np->id) {
-                        if($this->currentData['addNewNoMatch']) {
-                            $newPage = true;
-                            $np = $this->newPage($pp, $childTemplate);
-                            $np->of(false);
-                            $np->save();
-                        }
-                        else {
-                            continue;
-                        }
-                    }
-                    // page already exists, but update template if allowed / requested
-                    elseif($this->wire('input')->post->updateTemplateExistingChildren) {
-                        $np->template = $childTemplate;
-                        $np->save();
-                    }
-                    if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
-                        if($titleKey) $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($row[$titleKey-1], Sanitizer::translate)), $np, $newPage);
+                //if fields pairings are not defined, then make sure the field count matches the number of fields in the selected child template
+                if(!isset($this->data['pageSettings'][$pp->id]['fieldPairings']) || $this->data['pageSettings'][$pp->id]['fieldPairings'] == '') {
+                    //only if greater than one, because one column in each row is just for setting the title/name
+                    if(count($row) > 1 && count($row) != count($this->wire('templates')->get($childTemplate)->fields)) {
+                        $this->error($this->_("The number of columns/fields in your CSV do not match the number of fields in the template. Nothing can be safely imported. If you need to exclude certain fields, make sure the CSV has blank values for the excluded fields."));
+                        return;
                     }
                 }
-                //not update mode, so create new page
+                //if field pairings are defined, check that the field/column count in the CSV is at least as many as the number of defined pairings
+                //if field pairings are defined then we don't allow titles only (unless that is the only pairing defined), hence no check for count($row) > 1
                 else {
-                    $newPage = true;
-                    $np = $this->newPage($pp, $childTemplate);
-                }
-
-                if($titleKey) {
-                    if(!$this->currentData['noCaseUpdate'] && $np->title !== trim($this->wire('sanitizer')->text($row[$titleKey-1]))) {
-                        $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($row[$titleKey-1])), $np, $newPage);
+                    if(count($row) < count($convertedFieldPairings)) {
+                        $this->error($this->_("The number of columns/fields in your CSV is not enough for number of fields defined for this import. Nothing can be safely imported."));
+                        return;
                     }
                 }
 
-            }
+                //if first loop and replace mode then now it's safe to delete all existing child pages because above checks for field pairings have passed
+                if($x==1 && $this->wire('input')->post->edit_mode == "replace") {
+                    foreach($pp->children("include=all") as $cp) {
+                        if(!$cp->is(Page::statusSystemID) && $cp->trashable()) {
+                            $this->currentData['trashOrDelete'] == 'delete' ? $this->wire('pages')->delete($cp, true) : $this->wire('pages')->trash($cp);
+                        }
+                    }
+                }
 
-            //creating pages and populating fields
-            foreach($row as $childFieldValue) {
-                $childFieldValue = trim($childFieldValue);
-                //if fieldPairings is defined now populate the rest of the fields
-                if($this->currentData['fieldPairings'] != '') {
-                    //populate new page with rest of the field values
-                    if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
-                        //check for subfields (eg textareas pro field) with a period (.) separator
-                        if (strpos($convertedFieldPairings[$i+1],'.')) {
-                            $fieldParts = explode('.', $convertedFieldPairings[$i+1]);
-                            $np->{$fieldParts[0]}->{$fieldParts[1]} = $childFieldValue;
-                            if($np->isChanged($fieldParts[0])) {
+                //create new or edit existing child pages
+                //if fieldPairings is defined and this is first column, then set name/title and create new / get existing page
+                if($i==0 && $this->currentData['fieldPairings'] != '') {
+                    // if title key exists, then make sure it is populated
+                    // not necessary in update mode only setups so it may be not set
+                    if($titleKey && $row[$titleKey-1] == '') continue;
+                    //update mode so re-title/re-name existing page
+                    if($this->wire('input')->post->edit_mode == "update") {
+                        $np = $this->currentData['matchByFirstField'] ? $pp->child($convertedFieldPairings[$i+1]."=".$this->wire('sanitizer')->selectorValue($row[0]).", include=all") : $pp->children("include=all")->eq($x-1);
+                        if(!$np->id) {
+                            if($this->currentData['addNewNoMatch']) {
+                                $newPage = true;
+                                $np = $this->newPage($pp, $childTemplate);
                                 $np->of(false);
-                                $np->save($fieldParts[0]);
-                            }
-                        }
-                        else {
-                            $this->populateField($np, $convertedFieldPairings[$i+1], $childFieldValue);
-                        }
-                    }
-                }
-                // else field pairings not defined, so match all fields in order
-                else {
-                    // first item is the page title so create new page
-                    if($i==0) {
-                        if($childFieldValue == '') continue;
-                        // update mode so re-title/re-name existing page
-                        if($this->wire('input')->post->edit_mode == "update") {
-                            $np = $pp->children("include=all")->eq($x-1);
-                            // update template if allowed / requested
-                            if($np && $np->id && $this->wire('input')->post->updateTemplateExistingChildren) {
-                                $np->template = $childTemplate;
                                 $np->save();
                             }
-                            if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
-                                if($np && $np->id) {
-                                    $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($childFieldValue, Sanitizer::translate)), $np, $newPage);
-                                }
-                                // for new pages added at the end when using Update mode
-                                else {
-                                    if(!$pp->addable()) continue; //update mode is available to users without add permission, but they shouldn't be able to add new pages at the end
-                                    $newPage = true;
-                                    $np = $this->newPage($pp, $childTemplate);
-                                }
+                            else {
+                                continue;
                             }
                         }
-                        //not update mode, so create new page
-                        else {
-                            $newPage = true;
-                            $np = $this->newPage($pp, $childTemplate);
+                        // page already exists, but update template if allowed / requested
+                        elseif($this->wire('input')->post->updateTemplateExistingChildren) {
+                            $np->template = $childTemplate;
+                            $np->save();
                         }
-
-                        $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($childFieldValue)), $np, $newPage);
-
-                        //populate numeric array of field names
-                        $fieldsArray = array();
-                        foreach($np->fields as $f) $fieldsArray[] = $f->name;
+                        if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
+                            if($titleKey) $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($row[$titleKey-1], Sanitizer::translate)), $np, $newPage);
+                        }
                     }
-                    //populate new page with rest of the field values
+                    //not update mode, so create new page
                     else {
-                        $this->populateField($np, $fieldsArray[$i], $childFieldValue);
+                        $newPage = true;
+                        $np = $this->newPage($pp, $childTemplate);
                     }
+
+                    if($titleKey) {
+                        if(!$this->currentData['noCaseUpdate'] && $np->title !== trim($this->wire('sanitizer')->text($row[$titleKey-1]))) {
+                            $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($row[$titleKey-1])), $np, $newPage);
+                        }
+                    }
+
                 }
-                $i++;
+
+                //creating pages and populating fields
+                foreach($row as $childFieldValue) {
+                    $childFieldValue = trim($childFieldValue);
+                    //if fieldPairings is defined now populate the rest of the fields
+                    if($this->currentData['fieldPairings'] != '') {
+                        //populate new page with rest of the field values
+                        if(isset($convertedFieldPairings[$i+1]) && $convertedFieldPairings[$i+1] !== 'title') { // no need to redefine the title field value
+                            //check for subfields (eg textareas pro field) with a period (.) separator
+                            if (strpos($convertedFieldPairings[$i+1],'.')) {
+                                $fieldParts = explode('.', $convertedFieldPairings[$i+1]);
+                                $np->{$fieldParts[0]}->{$fieldParts[1]} = $childFieldValue;
+                                if($np->isChanged($fieldParts[0])) {
+                                    $np->of(false);
+                                    $np->save($fieldParts[0]);
+                                }
+                            }
+                            else {
+                                $this->populateField($np, $convertedFieldPairings[$i+1], $childFieldValue);
+                            }
+                        }
+                    }
+                    // else field pairings not defined, so match all fields in order
+                    else {
+                        // first item is the page title so create new page
+                        if($i==0) {
+                            if($childFieldValue == '') continue;
+                            // update mode so re-title/re-name existing page
+                            if($this->wire('input')->post->edit_mode == "update") {
+                                $np = $pp->children("include=all")->eq($x-1);
+                                // update template if allowed / requested
+                                if($np && $np->id && $this->wire('input')->post->updateTemplateExistingChildren) {
+                                    $np->template = $childTemplate;
+                                    $np->save();
+                                }
+                                if($this->wire('input')->post->userOverwriteNames || (!$this->wire('input')->post->userOverwriteNames && !$this->currentData['allowOverrideOverwriteNames'] && $this->currentData['overwriteNames'])) {
+                                    if($np && $np->id) {
+                                        $this->setPageTitleOrName('name', trim($this->wire('sanitizer')->pageName($childFieldValue, Sanitizer::translate)), $np, $newPage);
+                                    }
+                                    // for new pages added at the end when using Update mode
+                                    else {
+                                        if(!$pp->addable()) continue; //update mode is available to users without add permission, but they shouldn't be able to add new pages at the end
+                                        $newPage = true;
+                                        $np = $this->newPage($pp, $childTemplate);
+                                    }
+                                }
+                            }
+                            //not update mode, so create new page
+                            else {
+                                $newPage = true;
+                                $np = $this->newPage($pp, $childTemplate);
+                            }
+                            
+                            $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($childFieldValue)), $np, $newPage);
+
+                            //populate numeric array of field names
+                            $fieldsArray = array();
+                            foreach($np->fields as $f) $fieldsArray[] = $f->name;
+                        }
+                        //populate new page with rest of the field values
+                        else {
+                            $this->populateField($np, $fieldsArray[$i], $childFieldValue);
+                        }
+                    }
+                    $i++;
+                }
+            }
+            
+            if($useTransaction) {
+                $database->commit();
+            }
+        } catch(\Exception $e) {
+            if($useTransaction) {
+                $database->rollBack();
             }
         }
     }
 
-
+    /**
+     * Are transactions available with current DB engine (or table)?
+     * 
+     * @param string $table Optionally specify a table to specifically check to that table
+     * @return bool
+     * 
+     */
+    public function supportsTransaction($table = '') {
+        $engine = '';
+        if($table) {
+            $query = $this->prepare('SHOW TABLE STATUS WHERE name=:name'); 
+            $query->bindValue(':name', $table); 
+            $query->execute();
+            if($query->rowCount()) {
+                $row = $query->fetch(\PDO::FETCH_ASSOC);
+                $engine = empty($row['engine']) ? '' : $row['engine'];
+            }
+            $query->closeCursor();
+        } else {
+            $engine = $this->wire('config')->dbEngine;
+        }
+        return strtoupper($engine) === 'INNODB';
+    }
 
     private function setPageTitleOrName($titleOrName, $value, $np, $newPage) {
         // if new set default language to same title as current language title
