@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.12',
+            'version' => '1.8.13',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1562,7 +1562,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                                 $newPage = true;
                                 $np = $this->newPage($pp, $childTemplate);
                             }
-                            
+
                             $this->setPageTitleOrName('title', trim($this->wire('sanitizer')->text($childFieldValue)), $np, $newPage);
 
                             //populate numeric array of field names
@@ -1577,7 +1577,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $i++;
                 }
             }
-            
+
             if($useTransaction) {
                 $database->commit();
             }
@@ -1590,16 +1590,16 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
     /**
      * Are transactions available with current DB engine (or table)?
-     * 
+     *
      * @param string $table Optionally specify a table to specifically check to that table
      * @return bool
-     * 
+     *
      */
     public function supportsTransaction($table = '') {
         $engine = '';
         if($table) {
-            $query = $this->prepare('SHOW TABLE STATUS WHERE name=:name'); 
-            $query->bindValue(':name', $table); 
+            $query = $this->prepare('SHOW TABLE STATUS WHERE name=:name');
+            $query->bindValue(':name', $table);
             $query->execute();
             if($query->rowCount()) {
                 $row = $query->fetch(\PDO::FETCH_ASSOC);
