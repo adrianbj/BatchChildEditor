@@ -26,13 +26,19 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.13',
+            'version' => '1.8.14',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
             'autoload' => false,
             'permission' => 'batch-child-editor',
-            'requires' => 'BatchChildEditor'
+            'requires' => 'BatchChildEditor',
+            'page' => array(
+                'name' => 'children-csv-export',
+                'parent' => 'setup',
+                'title' => 'Children CSV Export',
+                'status' => 'hidden'
+            )
             );
     }
 
@@ -253,55 +259,5 @@ class ProcessChildrenCsvExport extends Process implements Module {
         exit;
 
     }
-
-
-
-    /**
-     * Install the module and create the page where it lives
-     *
-     */
-    public function ___install() {
-
-        $page = $this->getInstalledPage();
-        $this->message("Installed to {$page->path}");
-
-    }
-
-    /**
-     * Return the page that this Process is installed on
-     *
-     */
-    protected function getInstalledPage() {
-
-        $parent = $this->pages->get("name=page,parent=".$this->config->adminRootPageID);
-        $page = $parent->child("name=" . self::adminPageName);
-
-        if(!$page->id) {
-            $page = new Page();
-            $page->template = 'admin';
-            $page->parent = $this->pages->get($this->config->adminRootPageID)->child('name=setup');
-            $page->title = 'Children CSV Export';
-            $page->name = self::adminPageName;
-            $page->process = $this;
-            $page->status = Page::statusHidden;
-            $page->save();
-        }
-
-        return $page;
-    }
-
-    /**
-     * Uninstall the module
-     *
-     */
-    public function ___uninstall() {
-        $moduleID = $this->modules->getModuleID($this);
-        $page = $this->pages->get("template=admin, process=$moduleID, name=" . self::adminPageName);
-        if($page->id) {
-            $this->message("Removed {$page->path}");
-            $this->pages->delete($page);
-        }
-    }
-
 
 }
