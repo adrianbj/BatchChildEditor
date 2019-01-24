@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.14',
+            'version' => '1.8.15',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -984,62 +984,67 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
             if($this->currentData['allowOverrideCsvExportSettings']) {
 
-                if(in_array($settingsPage->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$settingsPage->id])) {
+                $f = $this->wire('modules')->get("InputfieldSelector");
+                $f->attr('name', 'pagesToInclude');
+                $f->label = __('Pages to Include');
+                $f->description = __('Leave blank to automatically select all child pages&nbsp;(not hidden and published)');
+                $f->initValue = "parent={$pp->id}";
+                $f->value = $this->currentData['pagesToInclude'];
+                $f->collapsed = Inputfield::collapsedBlank;
+                $exportFieldset->add($f);
 
-                    $f = $this->wire('modules')->get("InputfieldSelector");
-                    $f->attr('name', 'pagesToInclude');
-                    $f->label = __('Pages to Include');
-                    $f->description = __('Leave blank to automatically select all child pages&nbsp;(not hidden and published)');
-                    $f->initValue = "parent={$pp->id}";
-                    $f->value = $this->currentData['pagesToInclude'];
-                    $f->collapsed = Inputfield::collapsedBlank;
-                    $exportFieldset->add($f);
+                $f = $this->wire('modules')->get("InputfieldAsmSelect");
+                $f->name = "userExportFields";
+                $f->showIf = "edit_mode=export";
+                $f->label = __('Fields to export');
+                $f->description = __('Choose and sort the fields to include in the CSV export');
 
-                    $f = $this->wire('modules')->get("InputfieldAsmSelect");
-                    $f->name = "userExportFields";
-                    $f->showIf = "edit_mode=export";
-                    $f->label = __('Fields to export');
-                    $f->description = __('Choose and sort the fields to include in the CSV export');
-
-                    //system field labels
-                    foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
-                        $fieldLabels[$systemField] = $systemFieldLabel;
-                    }
-
-                    //custom template field labels for all child pages
-                    foreach($allFields as $pf) {
-                        $fieldLabels[$pf->name] = $pf->label ? $pf->label : $pf->name;
-                    }
-
-                    //populate user override export field list from the page's Settings tab
-                    $populatedFields = array();
-                    if(in_array($settingsPage->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$settingsPage->id]['exportFields'])) {
-                        foreach($this->data['pageSettings'][$settingsPage->id]['exportFields'] as $exportField) {
-                            $populatedFields[] = $exportField;
-                            if(isset($fieldLabels[$exportField])) $f->addOption($exportField, $fieldLabels[$exportField]);
-                            $f->value = $exportField;
-                        }
-                    }
-
-                    //all other fields not already populated
-                    //system fields
-                    foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
-                        if(!in_array($systemField, $populatedFields)) $f->addOption($systemField, $systemFieldLabel);
-                    }
-                    $allFields = array();
-                    foreach($pp->children("include=all") as $child) {
-                        foreach($child->fields as $cf) {
-                            if(!in_array($cf, $allFields)) $allFields[] = $cf;
-                        }
-                    }
-
-                    //custom template fields for all child pages
-                    foreach($allFields as $pf) {
-                        if(!in_array($pf->name, $populatedFields)) $f->addOption($pf->name, $pf->label ? $pf->label : $pf->name);
-                    }
-
-                    $exportFieldset->add($f);
+                //system field labels
+                foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
+                    $fieldLabels[$systemField] = $systemFieldLabel;
                 }
+
+                //custom template field labels for all child pages
+                foreach($allFields as $pf) {
+                    $fieldLabels[$pf->name] = $pf->label ? $pf->label : $pf->name;
+                }
+
+                //populate user override export field list from the page's Settings tab
+                $populatedFields = array();
+                if(in_array($settingsPage->id, $this->data['configurablePages']) && isset($this->data['pageSettings'][$settingsPage->id]['exportFields'])) {
+                    foreach($this->data['pageSettings'][$settingsPage->id]['exportFields'] as $exportField) {
+                        $populatedFields[] = $exportField;
+                        if(isset($fieldLabels[$exportField])) $f->addOption($exportField, $fieldLabels[$exportField]);
+                        $f->value = $exportField;
+                    }
+                }
+                else {
+                    foreach($allFields as $exportField) {
+                        $populatedFields[] = $exportField->name;
+                        if(isset($fieldLabels[$exportField->name])) $f->addOption($exportField->name, $fieldLabels[$exportField->name]);
+                        $f->value = $exportField->name;
+                    }
+                }
+
+                //all other fields not already populated
+                //system fields
+                foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
+                    if(!in_array($systemField, $populatedFields)) $f->addOption($systemField, $systemFieldLabel);
+                }
+                $allFields = array();
+                foreach($pp->children("include=all") as $child) {
+                    foreach($child->fields as $cf) {
+                        if(!in_array($cf, $allFields)) $allFields[] = $cf;
+                    }
+                }
+
+                //custom template fields for all child pages
+                foreach($allFields as $pf) {
+                    if(!in_array($pf->name, $populatedFields)) $f->addOption($pf->name, $pf->label ? $pf->label : $pf->name);
+                }
+
+                $exportFieldset->add($f);
+
 
                 $f = $this->wire('modules')->get("InputfieldText");
                 $f->name = 'export_column_separator';
