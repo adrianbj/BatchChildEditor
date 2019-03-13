@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.15',
+            'version' => '1.8.16',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -798,7 +798,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $defaultTemplateOptions = "<select name = 'templateId[new_0]'>";
             foreach($possibleTemplates as $templateId) {
                 $t = $this->wire('templates')->get($templateId);
-                if(!$t->id || !$this->isAllowedTemplateAdd($t, $pp)) continue;
+                if(is_null($t) || !$t->id || !$this->isAllowedTemplateAdd($t, $pp)) continue;
                 $defaultTemplateOptions .= '<option value = "'.$t->id.'">' . ($t->label ? $t->label : $t->name) . '</option>';
             }
             $defaultTemplateOptions .= "</select>";
