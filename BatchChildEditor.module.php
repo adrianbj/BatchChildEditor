@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.16',
+            'version' => '1.8.17',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1642,10 +1642,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f = $this->wire('fields')->get($fieldName);
         if($f->usePurifier) $childFieldValue = $this->wire('sanitizer')->purify($childFieldValue);
         if($f->type instanceof FieldtypePage) {
-            $this->updatePageFields($f, $fieldName, $np, $this->currentData['importMultipleValuesSeparator'], $childFieldValue);
+            $this->updatePageFields($f, $fieldName, $np, $childFieldValue);
         }
         elseif($f->type instanceof FieldtypeFile) {
-            $this->updateFileFields($f, $fieldName, $np, $this->currentData['importMultipleValuesSeparator'], $childFieldValue, $this->currentData['newImageFirst']);
+            $this->updateFileFields($f, $fieldName, $np, $childFieldValue, $this->currentData['newImageFirst']);
+        }
+        elseif($f->type instanceof FieldtypeMultiplier) {
+            $this->updateMultiplierFields($f, $fieldName, $np, $childFieldValue);
         }
         else {
             if($this->wire('languages') && $f->type instanceof FieldtypeLanguageInterface) {
@@ -1665,8 +1668,16 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
     }
 
+    private function updateMultiplierFields($f, $fieldsArrayItem, $np, $childFieldValue) {
+        $importMultipleValuesSeparator = $this->getImportMultipleValuesSeparator();
+        $np->of(false);
+        $np->{$fieldsArrayItem} = explode($importMultipleValuesSeparator, $childFieldValue);
+        $np->save($fieldsArrayItem);
+    }
+
     private function updateFileFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childFieldValue, $newImageFirst = false) {
         $childFieldValues = $childFieldValue;
+        $importMultipleValuesSeparator = $this->getImportMultipleValuesSeparator();
         foreach(explode($importMultipleValuesSeparator, $childFieldValues) as $childFieldValue) {
             if(file_exists($childFieldValue) || strpos($childFieldValue,'//') !== false) {
                 try {
@@ -1691,11 +1702,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         }
     }
 
-    private function updatePageFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childFieldValue) {
+    private function updatePageFields($f, $fieldsArrayItem, $np, $childFieldValue) {
         $inputfield = $f->getInputfield($np);
         $options = $inputfield->getSelectablePages($np);
-        if($importMultipleValuesSeparator == '\r') $importMultipleValuesSeparator = chr(13);
-        if($importMultipleValuesSeparator == '\n') $importMultipleValuesSeparator = chr(10);
+        $importMultipleValuesSeparator = $this->getImportMultipleValuesSeparator();
         if($f->derefAsPage === 0) {
             foreach(explode($importMultipleValuesSeparator, $childFieldValue) as $title) {
                 $pageMatch = null;
@@ -1736,6 +1746,19 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $newPageFieldPage->title = $this->wire('sanitizer')->text($title);
         $newPageFieldPage->save();
         return $newPageFieldPage;
+    }
+
+    private function getImportMultipleValuesSeparator() {
+        if($this->currentData['importMultipleValuesSeparator'] == '\r') {
+            $importMultipleValuesSeparator = chr(13);
+        }
+        elseif($this->currentData['importMultipleValuesSeparator'] == '\n') {
+            $importMultipleValuesSeparator = chr(10);
+        }
+        else {
+            $importMultipleValuesSeparator = $this->currentData['importMultipleValuesSeparator'];
+        }
+        return $importMultipleValuesSeparator;
     }
 
     /**

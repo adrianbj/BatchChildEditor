@@ -26,7 +26,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.14',
+            'version' => '1.8.17',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
