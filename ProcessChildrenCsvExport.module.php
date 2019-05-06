@@ -26,7 +26,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.17',
+            'version' => '1.8.18',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -224,11 +224,11 @@ class ProcessChildrenCsvExport extends Process implements Module {
                     }
                 }
                 //FieldtypeMultiplier and FieldtypeFile
-                elseif(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeMultiplier' || wire('fields')->$fieldName->type instanceof FieldtypeFile)) {
+                elseif(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeMultiplier' || wire('fields')->$fieldName->type == 'FieldtypeOptions' || wire('fields')->$fieldName->type instanceof FieldtypeFile)) {
                     if(wire('fields')->$fieldName->type instanceof FieldtypeFile) $p->of(false); //formatting off required if output format is "Rendered string of text"
                     if(count($p->$fieldName)>0) {
                         $values = array();
-                        foreach($p->$fieldName as $value) $values[] = $value;
+                        foreach($p->$fieldName as $value) $values[] = $formatExport && wire('fields')->$fieldName->type == 'FieldtypeOptions' ? $value->title : $value;
                         $formattedValue = implode($exportMultipleValuesSeparator, $values);
                     }
                     $p->of($formatExport);
