@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.18',
+            'version' => '1.8.19',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1675,7 +1675,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $np->save($fieldsArrayItem);
     }
 
-    private function updateFileFields($f, $fieldsArrayItem, $np, $importMultipleValuesSeparator, $childFieldValue, $newImageFirst = false) {
+    private function updateFileFields($f, $fieldsArrayItem, $np, $childFieldValue, $newImageFirst = false) {
         $childFieldValues = $childFieldValue;
         $importMultipleValuesSeparator = $this->getImportMultipleValuesSeparator();
         foreach(explode($importMultipleValuesSeparator, $childFieldValues) as $childFieldValue) {
