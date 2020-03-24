@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.19',
+            'version' => '1.8.20',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -579,6 +579,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->label = __('Choose the language to populate');
             $f->required = true;
             $f->columnWidth = 34;
+            $f->value = $this->wire('languages')->get('default');
             foreach($this->wire('languages') as $lang) {
                 $f->addOption($lang->name);
             }
@@ -1415,7 +1416,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // if there is no new line at the end, add one to fix issue if last item in CSV row has enclosures but others don't
         if(substr($childPages, -1) != "\r" && substr($childPages, -1) != "\n") $childPages .= PHP_EOL;
 
-        require_once __DIR__ . '/parsecsv.lib.php';
+        require_once __DIR__ . '/parsecsv-for-php/parsecsv.lib.php';
 
         $childPagesArray = new parseCSV();
         $childPagesArray->encoding('UTF-16', 'UTF-8');
@@ -1423,7 +1424,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $childPagesArray->delimiter = $this->currentData['csvImportFieldSeparator'] == "tab" ? chr(9) : $this->currentData['csvImportFieldSeparator'];
         $childPagesArray->enclosure = $this->currentData['csvImportFieldEnclosure'];
         $childPagesArray->parse($childPages);
-
 
         //if defined, get field pairings
         if(isset($this->data['pageSettings'][$pp->id]['fieldPairings']) && $this->data['pageSettings'][$pp->id]['fieldPairings'] != '') {
@@ -1442,6 +1442,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $database->beginTransaction();
             }
             foreach($childPagesArray->data as $row) {
+
+                // parsecsv-for-php library converts numerical array to associative when heading/ignoreFirstRow is true
+                // which we don't want, so convert back back to numerical
+                if($this->currentData['ignoreFirstRow']) $row = array_values($row);
 
                 $newPage = false;
                 $i=0;
