@@ -26,7 +26,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.18',
+            'version' => '1.8.21',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -109,7 +109,9 @@ class ProcessChildrenCsvExport extends Process implements Module {
         if($exportMultipleValuesSeparator == '\r') $exportMultipleValuesSeparator = chr(13);
         if($exportMultipleValuesSeparator == '\n') $exportMultipleValuesSeparator = chr(10);
         $formatExport = isset($formatExport) ? $formatExport : $currentData['formatExport'];
-        $pagesToInclude = $pagesToInclude ? $pagesToInclude : $currentData['pagesToInclude'];
+        if(!$pagesToInclude) {
+            $pagesToInclude = isset($currentData['pagesToInclude']) ? $currentData['pagesToInclude'] : '';
+        }
         $fieldNames = $fieldNames ? $fieldNames : $currentData['exportFields'];
 
         if($fieldNames[0] == 'undefined') {
