@@ -21,7 +21,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.21',
+            'version' => '1.8.22',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -182,8 +182,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         // GET parameter id tells the page that's being edited
         $this->editedPage = $this->wire('pages')->get($id);
 
-        // if template of page doesn't allow children, then exit now
-        if($this->editedPage->template->noChildren ===1) return;
+        // if page doesn't exist or template of page doesn't allow children, then exit now
+        if(!$this->editedPage->id || $this->editedPage->template->noChildren ===1) return;
 
         // don't even consider system templates
         if(!$this->data['allowAdminPages'] && ($this->editedPage->template->flags & Template::flagSystem)) return;
