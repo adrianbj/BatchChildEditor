@@ -4,12 +4,8 @@
  * ProcessWire batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.
  * by Adrian Jones
  *
- * ProcessWire 2.x
- * Copyright (C) 2011 by Ryan Cramer
+ * Copyright (C) 2020 by Adrian Jones
  * Licensed under GNU/GPL v2, see LICENSE.TXT
- *
- * http://www.processwire.com
- * http://www.ryancramer.com
  *
  */
 
@@ -21,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.22',
+            'version' => '1.8.23',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
