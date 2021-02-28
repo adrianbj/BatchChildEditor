@@ -17,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.23',
+            'version' => '1.8.24',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1650,6 +1650,9 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         elseif($f->type instanceof FieldtypeMultiplier) {
             $this->updateMultiplierFields($f, $fieldName, $np, $childFieldValue);
         }
+        elseif($f->type instanceof FieldtypeMapMarker) {
+            $this->updateMapMarkerFields($f, $fieldName, $np, $childFieldValue);
+        }
         else {
             if($this->wire('languages') && $f->type instanceof FieldtypeLanguageInterface) {
                 $langs = $this->wire('session')->populateToAllLanguages ? $this->wire('languages') : array($this->wire('session')->languageToPopulate);
@@ -1673,6 +1676,18 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $np->of(false);
         $np->{$fieldsArrayItem} = explode($importMultipleValuesSeparator, $childFieldValue);
         $np->save($fieldsArrayItem);
+    }
+
+    private function updateMapMarkerFields($f, $fieldName, $np, $childFieldValue) {
+        $importMultipleValuesSeparator = $this->getImportMultipleValuesSeparator();
+        $np->of(false);
+        $subfields = explode($importMultipleValuesSeparator, $childFieldValue);
+        $np->$fieldName->address = $subfields[0];
+        $np->$fieldName->lat = $subfields[1];
+        $np->$fieldName->lng = $subfields[2];
+        $np->$fieldName->zoom = $subfields[3];
+        $np->$fieldName->status = $subfields[4] != '' ? $subfields[4] : '-100';
+        $np->save($fieldName);
     }
 
     private function updateFileFields($f, $fieldsArrayItem, $np, $childFieldValue, $newImageFirst = false) {

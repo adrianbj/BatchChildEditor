@@ -26,7 +26,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.23',
+            'version' => '1.8.24',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -244,6 +244,12 @@ class ProcessChildrenCsvExport extends Process implements Module {
                         $formattedValue = implode($exportMultipleValuesSeparator, $values);
                     }
                     $p->of($formatExport);
+                }
+                elseif(wire('fields')->$fieldName->type == "FieldtypeMapMarker") {
+                    foreach(array('address', 'lat', 'lng', 'zoom', 'status') as $subFieldName) {
+                        $values[] = $p->$fieldName->$subFieldName;
+                    }
+                    $formattedValue = implode($exportMultipleValuesSeparator, $values);
                 }
                 elseif(wire('fields')->$fieldName->type instanceof FieldtypeMulti && count($p->$fieldName) === 0) {
                     $formattedValue = '';
