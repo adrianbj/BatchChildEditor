@@ -17,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.24',
+            'version' => '1.8.25',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1273,7 +1273,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             foreach($this->wire('input')->post->individualChildTitles as $id => $childTitle) {
                 if(isset($idsToDelete) && in_array($id, $idsToDelete)) continue; //ignore pages that have just been deleted
                 $childTitle = trim($this->wire('sanitizer')->text($childTitle));
-                $i++;
+
                 // new page
                 if(strpos($id, 'new') !== FALSE) {
                     if($childTitle == '') continue; // in case someone clicked add Page, but left it blank
@@ -1319,7 +1319,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         $cp->removeStatus(Page::statusUnpublished);
                     }
 
-                    //if($i==1 && !$this->wire('input')->post->childTemplate) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
+                    //if($i==0 && !$this->wire('input')->post->childTemplate) $childTemplate = $cp->template->name; //get the template of the first child in case we need it to assign to a newly added page
                 }
 
                 $cp->title = $childTitle;
@@ -1360,6 +1360,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $cp->of(false);
                     $cp->save();
                 }
+
+                $i++;
             }
         }
     }
