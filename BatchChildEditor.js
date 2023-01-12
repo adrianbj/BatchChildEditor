@@ -16,7 +16,7 @@ function batchChildTableDialog() {
 
     var dialogPageID = 0;
 
-    $iframe.load(function () {
+    $iframe.on('load', function () {
 
         var buttons = [];
         var pid = getUrlVars(url)["id"];
