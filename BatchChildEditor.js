@@ -30,7 +30,7 @@ function batchChildTableDialog() {
         // hide things we don't need in a modal context
         //$icontents.find('#breadcrumbs ul.nav, #Inputfield_submit_save_field_copy').hide();
 
-        closeOnSave = $icontents.find('#ProcessPageAdd').size() == 0;
+        closeOnSave = $icontents.find('#ProcessPageAdd').length == 0;
 
         // copy buttons in iframe to dialog
         $icontents.find("#content form button.ui-button[type=submit], button.ui-button[name=submit_delete]").each(function () {
@@ -303,7 +303,7 @@ $(document).ready(function () {
         i++;
         var $table = $(this).closest('.Inputfield').find('table.bceEditTable');
         var $tbody = $table.find('tbody:first');
-        var numRows = $tbody.children('tr').size();
+        var numRows = $tbody.children('tr').length;
         var $row = $tbody.children(":first").clone(true);
         var $titleCell = $row.find("td:eq(" + (c++) + ")").find(':input');
         $titleCell.attr('placeholder', ''); // empty the title placeholder text
