@@ -17,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.25',
+            'version' => '1.8.26',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -903,8 +903,8 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $inputfield->wire('modules')->includeModule('ProcessPageLister');
                 $customDefaultFilter = $this->currentData['defaultFilter'] ? ", {$this->currentData['defaultFilter']}" : "";
                 $bookmark = array(
-                    'initSelector' => '',
-                    'defaultSelector' => "parent={$pp->id}, include=all{$customDefaultFilter}",
+                    'initSelector' => "parent={$pp->id}",
+                    'defaultSelector' => "include=all{$customDefaultFilter}",
                     'defaultSort' => $this->currentData['listerDefaultSort'],
                     'columns' => $this->currentData['listerColumns'],
                     'toggles' => array('noButtons'),
