@@ -6,12 +6,8 @@
  *
  * Helper process module for generating CSV from a Table field
  *
- * ProcessWire 2.x
- * Copyright (C) 2011 by Ryan Cramer
+ * Copyright (C) 2024 by Adrian Jones
  * Licensed under GNU/GPL v2, see LICENSE.TXT
- *
- * http://www.processwire.com
- * http://www.ryancramer.com
  *
  */
 
@@ -26,7 +22,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.24',
+            'version' => '1.8.28',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -245,13 +241,13 @@ class ProcessChildrenCsvExport extends Process implements Module {
                     }
                     $p->of($formatExport);
                 }
-                elseif(wire('fields')->$fieldName->type == "FieldtypeMapMarker") {
+                elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type == "FieldtypeMapMarker") {
                     foreach(array('address', 'lat', 'lng', 'zoom', 'status') as $subFieldName) {
                         $values[] = $p->$fieldName->$subFieldName;
                     }
                     $formattedValue = implode($exportMultipleValuesSeparator, $values);
                 }
-                elseif(wire('fields')->$fieldName->type instanceof FieldtypeMulti && count($p->$fieldName) === 0) {
+                elseif(wire('fields')->$fieldName && wire('fields')->$fieldName->type instanceof FieldtypeMulti && count($p->$fieldName) === 0) {
                     $formattedValue = '';
                 }
                 //All other fields
