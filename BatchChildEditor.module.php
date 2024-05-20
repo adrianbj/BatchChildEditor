@@ -17,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.28',
+            'version' => '1.8.29',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -1336,10 +1336,10 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         $name = $pageName . ($n ? "-$n" : '');
                         // see if another page already has the same name
                         if($this->wire('languages') && $this->wire('modules')->isInstalled("LanguageSupportPageNames") && !$this->wire('user')->language->isDefaultLanguage) {
-                            $child = $pp->child("name$langid=$name");
+                            $child = $this->wire('pages')->getFresh($pp)->child("name$langid=$name");
                         }
                         else {
-                            $child = $pp->child("name=$name");
+                            $child = $this->wire('pages')->getFresh($pp)->child("name=$name");
                         }
                         if($child->id) $matchedChildId = $child->id;
                         $n++;
