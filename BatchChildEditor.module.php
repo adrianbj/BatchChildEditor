@@ -17,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.29',
+            'version' => '1.8.30',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -859,7 +859,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $this->currentData['allowTemplateChanges'] && $this->wire('user')->hasPermission("page-template", $cp) ? '<select id="template_'.$cp->id.'" name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : '<span id="template_'.$cp->id.'">'.($cp->template->label ?: $cp->template->name).'</span>',
                     '<input id="hiddenStatus_'.$cp->id.'" class="hiddenStatus" name="hiddenStatus['.$cp->id.']" type="checkbox" '.($cp->is(Page::statusHidden) ? 'checked' : '').'/>',
                     '<input id="unpublishedStatus_'.$cp->id.'" class="unpublishedStatus" name="unpublishedStatus['.$cp->id.']" type="checkbox"'.($cp->is(Page::statusUnpublished) ? ' checked' : '').(!$allowPublish ? ' disabled' : '').'/>',
-                    $cp->viewable() ? ' <a href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
+                    $cp->viewable() ? ' <a class="pw-modal pw-modal-large pw-modal-longclick" href="'.$cp->httpUrl.'" target="_blank"><i style="cursor:pointer" class="fa fa-eye"></i></a>' : '',
                     $cp->editable() ? '<a class="batchChildTableEdit" data-url="./?id='.$cp->id.($this->wire('languages') ? '&amp;lang='.$userLang->id : '').'&amp;modal=1" href="'.$cp->editUrl.'"><i style="cursor:pointer" class="fa fa-pencil"></i></a>' : '',
                     $cp->trashable() ? "<i style='cursor:pointer' class='fa fa-trash-o InputfieldChildTableRowDeleteLink'></i>" : ""
                 );

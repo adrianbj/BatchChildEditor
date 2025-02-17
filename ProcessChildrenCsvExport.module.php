@@ -22,7 +22,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.28',
+            'version' => '1.8.30',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -67,7 +67,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public function outputCSV($data, $delimiter, $enclosure) {
         $output = fopen("php://output", "w");
         foreach ($data as $row) {
-            fputcsv($output, $row, $delimiter == "tab" ? chr(9) : $delimiter, $enclosure);
+            fputcsv($output, $row, $delimiter == "tab" ? chr(9) : $delimiter, $enclosure, '\\');
         }
         fclose($output);
     }
