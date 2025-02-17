@@ -22,7 +22,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
     public static function getModuleInfo() {
         return array(
             'title' => __('Process Children CSV Export'),
-            'version' => '1.8.30',
+            'version' => '1.8.31',
             'summary' => __('Helper module for BatchChildEditor for creating CSV to export'),
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
             'singular' => true,
@@ -75,8 +75,7 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
     public function exportCsv($event = NULL) {
 
-        $defaultSettings = wire('modules')->get("BatchChildEditor")->getDefaultData();
-        $systemFields = $defaultSettings['systemFields'];
+        $systemFields = wire('modules')->get("BatchChildEditor")->systemFields;
 
         $configSettings = wire('modules')->getModuleConfigData("BatchChildEditor");
 
@@ -176,17 +175,22 @@ class ProcessChildrenCsvExport extends Process implements Module {
 
                 $formattedValue = '';
 
+                if($fieldName == 'created_formatted' || $fieldName == 'modified_formatted' || $fieldName == 'published_formatted') {
+                    $dateFieldName = str_replace('_formatted', '', $fieldName);
+                    $formattedValue = date('Y-m-d H:i:s', $p->$dateFieldName);
+                }
                 //exclude unsupported field types
-                if(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' ||
+                elseif(wire('fields')->$fieldName && (wire('fields')->$fieldName->type == 'FieldtypeTable' ||
                     wire('fields')->$fieldName->type == 'FieldtypeRepeater' ||
                     wire('fields')->$fieldName->type == 'FieldtypePageTable' ||
                     wire('fields')->$fieldName->type == 'FieldsetOpen' ||
                     wire('fields')->$fieldName->type == 'FieldsetClose' ||
                     wire('fields')->$fieldName->type == 'FieldsetTabOpen' ||
                     wire('fields')->$fieldName->type == 'FieldsetTabClose'
-                )) continue;
-
-                if(!$p->$fieldName) {
+                )) {
+                    continue;
+                }
+                elseif(!$p->$fieldName) {
                     $formattedValue = '';
                 }
                 //FieldtypeTextareas

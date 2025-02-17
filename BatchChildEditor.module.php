@@ -17,7 +17,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.30',
+            'version' => '1.8.31',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -41,6 +41,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
     protected $allowedTemplatesEdit = null;
     protected $allowedTemplatesAdd = null;
     protected $titleMultiLanguage;
+    public $systemFields = array();
 
    /**
      * Default configuration for module
@@ -48,23 +49,6 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      */
     static public function getDefaultData() {
             return array(
-                "systemFields" => array(
-                    'id' => __('ID'),
-                    'name' => __('Name (from URL)'),
-                    'path' => __('Path'),
-                    'url' => __('URL'),
-                    'status' => __('Status'),
-                    'created' => __('Date Created'),
-                    'modified' => __('Date Last Modified'),
-                    'createdUser.id' => __('Created by User: ID'),
-                    'createdUser.name' => __('Created by User: Name'),
-                    'modifiedUser.id' => __('Modified by User: ID'),
-                    'modifiedUser.name' => __('Modified by User: Name'),
-                    'parent_id' => __('Parent Page ID'),
-                    'parent.name' => __('Parent Page Name'),
-                    'template.id' => __('Template ID'),
-                    'template' => __('Template Name')
-                ),
                 "enabledTemplates" => array(),
                 "enabledPages" => array(),
                 "parentPage" => array(),
@@ -138,6 +122,29 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      *
      */
     public function __construct() {
+
+        $this->systemFields = array(
+            'id' => __('ID'),
+            'name' => __('Name (from URL)'),
+            'path' => __('Path'),
+            'url' => __('URL'),
+            'status' => __('Status'),
+            'created' => __('Created'),
+            'created_formatted' => __('Created (YYYY-mm-dd H:i:s)'),
+            'published' => __('Published'),
+            'published_formatted' => __('Published (YYYY-mm-dd H:i:s)'),
+            'modified' => __('Modified'),
+            'modified_formatted' => __('Modified (YYYY-mm-dd H:i:s)'),
+            'createdUser.id' => __('Created by User: ID'),
+            'createdUser.name' => __('Created by User: Name'),
+            'modifiedUser.id' => __('Modified by User: ID'),
+            'modifiedUser.name' => __('Modified by User: Name'),
+            'parent_id' => __('Parent Page ID'),
+            'parent.name' => __('Parent Page Name'),
+            'template.id' => __('Template ID'),
+            'template' => __('Template Name')
+        );
+
         foreach(self::getDefaultData() as $key => $value) {
             $this->$key = $value;
         }
@@ -997,7 +1004,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                 $f->description = __('Choose and sort the fields to include in the CSV export');
 
                 //system field labels
-                foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
+                foreach($this->systemFields as $systemField => $systemFieldLabel) {
                     $fieldLabels[$systemField] = $systemFieldLabel;
                 }
 
@@ -1025,7 +1032,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
 
                 //all other fields not already populated
                 //system fields
-                foreach($this->data['systemFields'] as $systemField => $systemFieldLabel) {
+                foreach($this->systemFields as $systemField => $systemFieldLabel) {
                     if(!in_array($systemField, $populatedFields)) $f->addOption($systemField, $systemFieldLabel);
                 }
                 $allFields = array();
@@ -2292,7 +2299,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->attr('name', 'listerDefaultSort');
         $f->label = __('Default Sort Order');
         $options = array();
-        $sortColumns = array('id', 'name', 'title', 'modified', 'created', 'sort', 'template');
+        $sortColumns = array('id', 'name', 'title', 'modified', 'created', 'published', 'sort', 'template');
         foreach($sortColumns as $name) {
             $label = $name;
             $options[$name] = $label;
@@ -2315,7 +2322,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         $f->showIf = "editModes=lister";
         $f->description = __('Which columns displayed by default.');
         $f->addOption('title', __("Title"));
-        foreach($data['systemFields'] as $systemField => $systemFieldLabel) {
+        foreach($this->systemFields as $systemField => $systemFieldLabel) {
             $f->addOption($systemField, $systemFieldLabel);
         }
         //get the right language label
@@ -2512,7 +2519,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             $f->description = __('Choose and sort the fields to include in the CSV export');
 
             //system fields
-            foreach($data['systemFields'] as $systemField => $systemFieldLabel) {
+            foreach($this->systemFields as $systemField => $systemFieldLabel) {
                 $f->addOption($systemField, $systemFieldLabel);
             }
             $allFields = array();
