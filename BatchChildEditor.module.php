@@ -1398,7 +1398,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         elseif($str != '') $childPagesContent = $str;
         else return;
 
-        return mb_check_encoding($childPagesContent, 'UTF-8') ? $childPagesContent : utf8_encode($childPagesContent);
+        return mb_check_encoding($childPagesContent, 'UTF-8') ? $childPagesContent : mb_convert_encoding($childPagesContent, 'UTF-8', 'ISO-8859-1');
     }
 
 
@@ -2083,7 +2083,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      * @return PageArray
      *
      */
-    protected function getAllowedParentsAdd(Template $template = null, $pp) {
+    protected function getAllowedParentsAdd(?Template $template, $pp) {
         if(count($this->predefinedParents)) {
             $parents = $this->predefinedParents;
         } else {
@@ -2122,7 +2122,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
      * @throws WireException of template argument can't be resolved
      *
      */
-    protected function isAllowedTemplateAdd($template, Page $parent = null) {
+    protected function isAllowedTemplateAdd($template, ?Page $parent = null) {
         if(!is_object($template)) $template = $this->wire('templates')->get($template);
         if(!$template) throw new WireException('Unknown template');
         $templates = $this->getAllowedTemplatesAdd($parent);
