@@ -1,5 +1,7 @@
 <?php
 
+namespace ProcessWire;
+
 /**
  * ProcessWire batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.
  * by Adrian Jones
@@ -17,7 +19,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
             'summary' => 'Quick batch creation (titles only or CSV import for other fields), editing, sorting, deletion, and CSV export of all children under a given page.',
             'author' => 'Adrian Jones',
             'href' => 'http://modules.processwire.com/modules/batch-child-editor/',
-            'version' => '1.8.31',
+            'version' => '1.8.32',
             'autoload' => "template=admin",
             'requires' => 'ProcessWire>=2.5.24',
             'installs' => 'ProcessChildrenCsvExport',
@@ -855,13 +857,13 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                     $langid = $userLang->isDefaultLanguage ? '' : $userLang->id;
                     $langInfo = ' data-langinfo="<table class=\'bceLanguages\'><tr><th>Language</th><th>Title</th><th>Name</th><th>Active</th></tr>';
                     foreach($this->wire('languages') as $lang) {
-                        $langInfo .= '<tr><td>' . htmlspecialchars($lang->title, ENT_QUOTES, "UTF-8") . '</td><td>' . htmlspecialchars($this->getLanguageVersion($cp, 'title', $lang), ENT_QUOTES, "UTF-8") . '</td><td>' . $this->getLanguageVersion($cp, 'name', $lang) . '</td><td>' . ($lang->isDefaultLanguage ? 'default' : ($cp->get("status{$lang->id}") ? "&#10004;" : "&#x2718;")) . '</td></tr>';
+                        $langInfo .= '<tr><td>' . htmlspecialchars($lang->title, \ENT_QUOTES, "UTF-8") . '</td><td>' . htmlspecialchars($this->getLanguageVersion($cp, 'title', $lang), \ENT_QUOTES, "UTF-8") . '</td><td>' . $this->getLanguageVersion($cp, 'name', $lang) . '</td><td>' . ($lang->isDefaultLanguage ? 'default' : ($cp->get("status{$lang->id}") ? "&#10004;" : "&#x2718;")) . '</td></tr>';
                     }
                     $langInfo .= '</table>" ';
                 }
                 $row = array(
                     $pp->sortfield == 'sort' && $cp->sortable() ? "<i style='cursor:move'  class='fa fa-arrows InputfieldChildTableRowSortHandle'></i>" : "",
-                    '<input id="'.$cp->id.'" type="text" name="individualChildTitles['.$cp->id.']" placeholder="'.htmlspecialchars($cp->title, ENT_QUOTES, "UTF-8").'" value="'.htmlspecialchars($this->getLanguageVersion($cp, 'title', $userLang, true), ENT_QUOTES, "UTF-8").'" style="width:calc(100% - 20px)" '. (!$cp->editable() ? " readonly" : "") . ' />' . (($this->wire('languages') && $this->wire('languages')->count() > 1 && $this->titleMultiLanguage && (($cp->title && !$cp->title->getLanguageValue($userLang)) || !$cp->title)) ? '&nbsp;<i class="fa fa-info-circle" title="No title for '.$userLang->title.'" style="color:#cccccc" aria-hidden="true"></i>' : ''),
+                    '<input id="'.$cp->id.'" type="text" name="individualChildTitles['.$cp->id.']" placeholder="'.htmlspecialchars($cp->title, \ENT_QUOTES, "UTF-8").'" value="'.htmlspecialchars($this->getLanguageVersion($cp, 'title', $userLang, true), \ENT_QUOTES, "UTF-8").'" style="width:calc(100% - 20px)" '. (!$cp->editable() ? " readonly" : "") . ' />' . (($this->wire('languages') && $this->wire('languages')->count() > 1 && $this->titleMultiLanguage && (($cp->title && !$cp->title->getLanguageValue($userLang)) || !$cp->title)) ? '&nbsp;<i class="fa fa-info-circle" title="No title for '.$userLang->title.'" style="color:#cccccc" aria-hidden="true"></i>' : ''),
                     '<span class="bcePageNameContainer"><span class="bcePageName" ' . $langInfo . ' id="name_'.$cp->id.'" style="' . ($cp->is(Page::statusUnpublished) ? 'text-decoration:line-through;' : '') . ($cp->is(Page::statusHidden) ? 'color:#8c8c8c;' : '') . '">'.$this->getLanguageVersion($cp, 'name', $userLang, true) . ($this->wire('modules')->isInstalled("LanguageSupportPageNames") && !$cp->localName($userLang) ? '</span>&nbsp;<i class="fa fa-info-circle" title="No name for '.$userLang->title.'" style="color:#cccccc; float:right" aria-hidden="true"></i>' : '') . '</span>',
                     $this->currentData['allowTemplateChanges'] && $this->wire('user')->hasPermission("page-template", $cp) ? '<select id="template_'.$cp->id.'" name = "templateId['.$cp->id.']">' . $templateOptions . '</select>' : '<span id="template_'.$cp->id.'">'.($cp->template->label ?: $cp->template->name).'</span>',
                     '<input id="hiddenStatus_'.$cp->id.'" class="hiddenStatus" name="hiddenStatus['.$cp->id.']" type="checkbox" '.($cp->is(Page::statusHidden) ? 'checked' : '').'/>',
@@ -1379,7 +1381,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         //CSV file upload
         if(isset($_FILES[$fileInputName]['name']) && $_FILES[$fileInputName]['name'] !== '') {
 
-            $csv_file_extension = pathinfo($_FILES[$fileInputName]["name"], PATHINFO_EXTENSION);
+            $csv_file_extension = pathinfo($_FILES[$fileInputName]["name"], \PATHINFO_EXTENSION);
 
             if($csv_file_extension == 'csv' || $csv_file_extension == 'txt' || $csv_file_extension == 'tsv') {
                 $childPagesContent = file_get_contents($_FILES[$fileInputName]["tmp_name"]);
@@ -1419,11 +1421,11 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         if($childPages == '') return;
 
         // if there is no new line at the end, add one to fix issue if last item in CSV row has enclosures but others don't
-        if(substr($childPages, -1) != "\r" && substr($childPages, -1) != "\n") $childPages .= PHP_EOL;
+        if(substr($childPages, -1) != "\r" && substr($childPages, -1) != "\n") $childPages .= \PHP_EOL;
 
         require_once __DIR__ . '/parsecsv-for-php/parsecsv.lib.php';
 
-        $childPagesArray = new parseCSV();
+        $childPagesArray = new \parseCSV();
         $childPagesArray->encoding('UTF-16', 'UTF-8');
         $childPagesArray->heading = $this->currentData['ignoreFirstRow'];
         $childPagesArray->delimiter = $this->currentData['csvImportFieldSeparator'] == "tab" ? chr(9) : $this->currentData['csvImportFieldSeparator'];
@@ -1705,7 +1707,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
         foreach(explode($importMultipleValuesSeparator, $childFieldValues) as $childFieldValue) {
             if(file_exists($childFieldValue) || strpos($childFieldValue,'//') !== false) {
                 try {
-                    $imageName = $this->wire('sanitizer')->pageName(pathinfo($childFieldValue, PATHINFO_BASENAME), Sanitizer::translate);
+                    $imageName = $this->wire('sanitizer')->pageName(pathinfo($childFieldValue, \PATHINFO_BASENAME), Sanitizer::translate);
                     $existingImage = $np->$fieldsArrayItem->get("name=".$this->wire('sanitizer')->selectorValue($imageName));
                     if($this->wire('fields')->get($fieldsArrayItem)->overwrite && $existingImage) {
                         $np->of(false);
@@ -1719,7 +1721,7 @@ class BatchChildEditor extends WireData implements Module, ConfigurableModule {
                         }
                     }
                 }
-                catch (Exception $e) {
+                catch (\Exception $e) {
                     //image must not be available at remote URL
                 }
             }
